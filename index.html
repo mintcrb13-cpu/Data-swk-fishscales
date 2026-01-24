@@ -1,991 +1,1794 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SWK - รายงานสถานะสินค้า (HTML)</title>
+import React, { useState, useEffect, useMemo } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Brush } from 'recharts';
+import { Package, TrendingUp, TrendingDown, Calendar, FileText, User, Trash2, X, FlaskConical, History, BarChart3, PlayCircle, AlertTriangle, LoaderCircle } from 'lucide-react';
 
-  <!-- Google Font -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-  <!-- Tailwind -->
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- FontAwesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-  <!-- ApexCharts -->
-  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-
-  <!-- SweetAlert2 -->
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Prompt', 'sans-serif'] }
-        }
-      }
-    }
-  </script>
-
-  <style>
-    html { scroll-behavior: smooth; }
-    ::-webkit-scrollbar { width: 10px; height: 10px; }
-    ::-webkit-scrollbar-track { background: #f1f1f1; }
-    ::-webkit-scrollbar-thumb { background: #2563eb; border-radius: 5px; }
-    ::-webkit-scrollbar-thumb:hover { background: #1d4ed8; }
-
-    .custom-scrollbar::-webkit-scrollbar { height: 16px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #8b5cf6; border-radius: 8px; }
-
-    .loader {
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #2563eb;
-      border-radius: 50%;
-      width: 40px; height: 40px;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
-  </style>
-</head>
-
-<body class="font-sans bg-gradient-to-br from-blue-100 to-indigo-200 min-h-screen">
-  <!-- Header -->
-  <header class="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-white/60 shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white">
-          <i class="fa-solid fa-chart-column"></i>
-        </div>
-        <div>
-          <div class="font-bold text-gray-800 text-lg leading-tight">รายงานสถานะสินค้า</div>
-          <div class="text-sm text-gray-500 leading-tight">เกล็ดปลาตากแห้ง (HTML + ApexCharts)</div>
-        </div>
-      </div>
-
-      <button onclick="openLogin()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold shadow hover:shadow-lg transition flex items-center gap-2">
-        <i class="fa-solid fa-lock"></i>
-        เข้าหน้าจัดการ
-      </button>
-    </div>
-  </header>
-
-  <!-- Loading Overlay -->
-  <div id="loading-overlay" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-[100]">
-    <div class="flex flex-col items-center">
-      <div class="loader mb-4"></div>
-      <p id="loading-text" class="text-white text-lg font-semibold">กำลังดำเนินการ...</p>
-    </div>
+// LoadingOverlay Component
+const LoadingOverlay = ({ message }) => (
+  <div className="fixed inset-0 bg-black bg-opacity-60 flex flex-col items-center justify-center z-50">
+    <LoaderCircle className="w-16 h-16 text-white animate-spin mb-4" />
+    <p className="text-white text-xl font-semibold">{message}</p>
   </div>
+);
 
-  <!-- Main -->
-  <main class="max-w-7xl mx-auto px-4 py-8 space-y-8">
+// CustomAlertModal Component
+const CustomAlertModal = ({ title, message, onClose, onConfirm, showCancel = false, confirmText = 'ตกลง', cancelText = 'ยกเลิก', showPasswordInput = false, onPasswordChange, passwordValue, correctPassword }) => {
+  const [error, setError] = useState('');
 
-    <!-- Stats -->
-    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="bg-gradient-to-br from-green-100 to-green-200 border border-green-300 p-6 rounded-3xl shadow-xl">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-green-800">ซื้อเข้าเดือนนี้</h3>
-          <div class="bg-green-500 p-2 rounded-full text-white"><i class="fa-solid fa-arrow-trend-up"></i></div>
-        </div>
-        <div class="text-center relative">
-          <p class="text-5xl font-bold text-green-900 mb-1" id="stat-in">0</p>
-          <div class="absolute bottom-0 right-0 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold">KG</div>
-        </div>
-      </div>
+  const handlePasswordInputChange = (e) => {
+    setError('');
+    onPasswordChange(e.target.value);
+  };
 
-      <div class="bg-gradient-to-br from-red-100 to-red-200 border border-red-300 p-6 rounded-3xl shadow-xl">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-red-800">ขายออกเดือนนี้</h3>
-          <div class="bg-red-500 p-2 rounded-full text-white"><i class="fa-solid fa-arrow-trend-down"></i></div>
-        </div>
-        <div class="text-center relative">
-          <p class="text-5xl font-bold text-red-900 mb-1" id="stat-out">0</p>
-          <div class="absolute bottom-0 right-0 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">KG</div>
-        </div>
-      </div>
-
-      <div class="bg-gradient-to-br from-violet-100 to-violet-200 border border-violet-300 p-6 rounded-3xl shadow-xl">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-violet-800">ของพร้อมส่ง</h3>
-          <div class="bg-violet-500 p-2 rounded-full text-white"><i class="fa-solid fa-box-open"></i></div>
-        </div>
-        <div class="text-center relative">
-          <p class="text-5xl font-bold text-violet-900 mb-1" id="stat-stock">0</p>
-          <div class="absolute bottom-0 right-0 bg-violet-500 text-white px-3 py-1 rounded-full text-sm font-semibold">กระสอบ</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Form -->
-    <section class="bg-white/80 backdrop-blur rounded-3xl shadow-xl border border-white/20 p-6 md:p-10">
-      <div class="flex items-center gap-3 mb-8">
-        <div class="bg-gradient-to-r from-blue-500 to-purple-600 p-3 rounded-2xl text-white">
-          <i class="fa-solid fa-file-pen"></i>
-        </div>
-        <h2 class="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          บันทึกรายการสินค้า
-        </h2>
-      </div>
-
-      <form id="inv-form" class="space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div class="space-y-2">
-            <label class="block text-lg font-semibold text-slate-700">สถานะ</label>
-            <select id="inv-status" class="w-full px-4 py-4 border-2 rounded-2xl text-lg font-medium bg-gray-50 border-gray-300 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition">
-              <option value="">-- เลือกสถานะ --</option>
-              <option value="ซื้อเข้า">📦 ซื้อเข้า</option>
-              <option value="ขายออก">🚛 ขายออก</option>
-            </select>
-          </div>
-
-          <div class="space-y-2">
-            <label class="block text-lg font-semibold text-slate-700">ชื่อลูกค้า/ผู้ขาย</label>
-            <input id="inv-name" type="text" class="w-full px-4 py-4 border-2 rounded-2xl text-lg bg-white border-gray-300 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition" placeholder="กรอกชื่อ..."/>
-          </div>
-        </div>
-
-        <div class="space-y-2">
-          <label class="block text-lg font-semibold text-slate-700" id="inv-qty-label">จำนวน (KG)</label>
-          <div class="relative">
-            <input id="inv-qty" type="number" step="0.01" class="w-full px-4 py-4 pr-16 border-2 rounded-2xl text-lg bg-white border-gray-300 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition" placeholder="0.00"/>
-            <div class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-semibold" id="inv-unit">KG</div>
-          </div>
-          <p class="text-sm text-gray-500" id="inv-hint"></p>
-        </div>
-
-        <div class="space-y-2">
-          <label class="block text-lg font-semibold text-slate-700">แนบรูปภาพ (สูงสุด 2 รูป)</label>
-          <div class="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center bg-gray-50 hover:bg-gray-100 transition relative">
-            <input id="inv-images" type="file" multiple accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer"/>
-            <div id="upload-placeholder">
-              <i class="fa-solid fa-cloud-arrow-up text-3xl text-gray-400 mb-2"></i>
-              <p class="text-gray-500">คลิกเพื่อเลือกรูปภาพ</p>
-            </div>
-            <div id="preview-container" class="hidden grid grid-cols-2 gap-4 mt-3"></div>
-          </div>
-        </div>
-
-        <button type="submit" class="w-full py-4 rounded-2xl text-xl font-bold text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg hover:shadow-xl transition">
-          💾 บันทึกรายการ
-        </button>
-      </form>
-    </section>
-
-    <!-- Table -->
-    <section class="bg-white/80 backdrop-blur rounded-3xl shadow-xl border border-white/20 p-6 md:p-10">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div class="flex items-center gap-3">
-          <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-3 rounded-2xl text-white">
-            <i class="fa-solid fa-table-list"></i>
-          </div>
-          <h2 class="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            รายการสินค้าทั้งหมด
-          </h2>
-        </div>
-
-        <div class="flex flex-wrap gap-3 items-center bg-white/70 rounded-2xl p-3 border">
-          <select id="filter-year" class="px-3 py-2 border rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 text-sm"></select>
-          <select id="filter-month" class="px-3 py-2 border rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 text-sm"></select>
-          <select id="filter-status" class="px-3 py-2 border rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 text-sm">
-            <option value="">ทุกสถานะ</option>
-            <option value="ซื้อเข้า">ซื้อเข้า</option>
-            <option value="ขายออก">ขายออก</option>
-          </select>
-          <button onclick="fetchData()" class="px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition text-sm flex items-center gap-2">
-            <i class="fa-solid fa-rotate"></i> โหลดใหม่
-          </button>
-        </div>
-      </div>
-
-      <div class="overflow-auto max-h-[520px] rounded-2xl border border-gray-200 bg-white">
-        <table class="w-full text-left border-collapse">
-          <thead class="bg-gray-100 text-gray-700 text-base sticky top-0 z-10">
-            <tr>
-              <th class="p-4 whitespace-nowrap text-center">วันที่/เวลา</th>
-              <th class="p-4 text-center">ชื่อ / สถานะ</th>
-              <th class="p-4 text-center">จำนวน</th>
-              <th class="p-4 text-center">รายละเอียด</th>
-              <th class="p-4 text-center"></th>
-            </tr>
-          </thead>
-          <tbody id="table-body" class="divide-y divide-gray-100 text-gray-700"></tbody>
-        </table>
-      </div>
-
-      <div class="mt-6 text-right">
-        <button onclick="clearSheetData()" class="bg-red-600 text-white font-bold py-2.5 px-5 rounded-xl hover:bg-red-700 transition flex items-center gap-2 ml-auto">
-          <i class="fa-solid fa-skull"></i> ล้างข้อมูลหน้านี้
-        </button>
-      </div>
-    </section>
-
-    <!-- Chart -->
-    <section class="bg-white/80 backdrop-blur rounded-3xl shadow-xl border border-white/20 p-6 md:p-10">
-      <div class="flex flex-col gap-4 mb-6">
-        <div class="flex items-center gap-3">
-          <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-3 rounded-2xl text-white">
-            <i class="fa-solid fa-chart-bar"></i>
-          </div>
-          <h2 class="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            ปริมาณสินค้า (ซื้อเข้า / ขายออก)
-          </h2>
-        </div>
-
-        <div class="flex flex-wrap gap-4 items-center bg-gray-50 p-3 rounded-2xl border border-gray-100">
-          <div class="flex items-center gap-2">
-            <input type="checkbox" id="chk-chart-month" checked onchange="toggleChartMode()" class="w-5 h-5 rounded border-gray-300">
-            <label for="chk-chart-month" class="text-sm font-semibold text-gray-700">โหมดเดือน (รายวัน)</label>
-          </div>
-
-          <div class="flex items-center gap-2">
-            <span class="text-sm font-medium text-gray-700">ปี:</span>
-            <select id="chart-year" onchange="renderChart()" class="px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white text-sm"></select>
-          </div>
-
-          <div class="flex items-center gap-2">
-            <span class="text-sm font-medium text-gray-700">เดือน:</span>
-            <select id="chart-month" onchange="renderChart()" class="px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white text-sm">
-              <option value="all">ทั้งหมด</option>
-            </select>
-          </div>
-
-          <div class="flex items-center gap-2 border-l pl-4 border-gray-300">
-            <span class="text-sm font-medium text-gray-700">สถานะ:</span>
-            <select id="chart-status" onchange="renderChart()" class="px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white text-sm">
-              <option value="">ทั้งหมด</option>
-              <option value="ซื้อเข้า">ซื้อเข้า</option>
-              <option value="ขายออก">ขายออก</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div class="flex w-full h-[450px] border border-gray-100 rounded-2xl overflow-hidden bg-white">
-        <!-- Fixed Y -->
-        <div class="w-[90px] h-full flex-shrink-0 relative z-10 bg-white pb-12">
-          <div id="chart-y" class="absolute -top-2 -left-2 w-[100px] h-full"></div>
-        </div>
-        <!-- Scrollable main -->
-        <div id="chart-scroller" class="flex-grow h-full overflow-x-auto overflow-y-hidden custom-scrollbar pb-12">
-          <div id="chart-main" class="h-full"></div>
-        </div>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- Image Modal -->
-  <div id="img-modal" class="fixed inset-0 z-[120] hidden bg-black/95 items-center justify-center p-4" onclick="closeImageModal()">
-    <button class="absolute top-6 right-6 text-white text-4xl hover:text-gray-300 focus:outline-none">&times;</button>
-    <div class="max-h-[90vh] max-w-[90vw] overflow-auto flex flex-col items-center gap-4" onclick="event.stopPropagation()">
-      <div id="img-modal-container" class="flex flex-col gap-4"></div>
-    </div>
-  </div>
-
-<script>
-  // =============================
-  // CONFIG
-  // =============================
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyfxWs81WEsrizNnTi82tZAOH_EHX1hKnvUoqsARpYch3TTjEqz5oepiol_vWQ4lK3G0g/exec';
-
-  // App data
-  let appData = { records: [], production: [] };
-  let charts = { y: null, main: null };
-  let currentImagesBase64 = [];
-
-  // =============================
-  // Helpers
-  // =============================
-  const getThaiMonthName = (m) => ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'][m-1];
-
-  function parseDate(str) {
-    if(!str) return new Date();
-    if(str instanceof Date) return str;
-    if(typeof str === "string" && str.includes('/')) {
-      // expect "dd/mm/yyyy, HH:MM:SS"
-      const parts = str.split(', ');
-      const dPart = parts[0];
-      const tPart = parts[1] || '00:00:00';
-      const [dd, mm, yyyy] = dPart.split('/');
-      return new Date(`${yyyy}-${mm}-${dd}T${tPart}`);
-    }
-    return new Date(str);
-  }
-
-  function formatDateThai(d) {
-    const date = new Date(d);
-    if (isNaN(date.getTime())) return '';
-    const dd = String(date.getDate()).padStart(2,'0');
-    const mm = String(date.getMonth()+1).padStart(2,'0');
-    const yy = date.getFullYear()+543;
-    const hh = String(date.getHours()).padStart(2,'0');
-    const mi = String(date.getMinutes()).padStart(2,'0');
-    return `${dd}/${mm}/${yy} ${hh}:${mi} น.`;
-  }
-
-  function showLoading(message="กำลังดำเนินการ...") {
-    const overlay = document.getElementById("loading-overlay");
-    document.getElementById("loading-text").innerText = message;
-    overlay.classList.remove("hidden");
-    overlay.classList.add("flex");
-  }
-
-  function hideLoading() {
-    const overlay = document.getElementById("loading-overlay");
-    overlay.classList.add("hidden");
-    overlay.classList.remove("flex");
-  }
-
-  // ✅ สต็อกพร้อมส่ง (กระสอบ)
-  function calculateReadyStockBags() {
-    const totalProducedBags = appData.production.reduce((s, r) => s + (parseInt(r.bags) || 0), 0);
-    const totalSoldBags = appData.records
-      .filter(r => r.status === 'ขายออก')
-      .reduce((s, r) => s + ((parseFloat(r.quantity) || 0) / 10), 0);
-    return Math.max(0, totalProducedBags - totalSoldBags);
-  }
-
-  // =============================
-  // Login
-  // =============================
-  function openLogin() {
-    Swal.fire({
-      title: 'เข้าสู่ระบบผู้ดูแล',
-      text: 'กรุณากรอกรหัสผ่าน (4455)',
-      input: 'password',
-      inputPlaceholder: 'รหัสผ่าน',
-      showCancelButton: true,
-      confirmButtonText: 'เข้าสู่ระบบ',
-      cancelButtonText: 'ยกเลิก'
-    }).then(res => {
-      if (!res.isConfirmed) return;
-      if (res.value === '4455') {
-        Swal.fire({ icon:'success', title:'สำเร็จ', timer: 1200, showConfirmButton:false });
+  const handleConfirmAction = () => {
+    if (showPasswordInput) {
+      if (passwordValue === correctPassword) {
+        if (onConfirm) onConfirm();
+        onClose();
       } else {
-        Swal.fire({ icon:'error', title:'รหัสผ่านไม่ถูกต้อง' });
+        setError('รหัสผ่านผิด');
+        onPasswordChange('');
       }
-    });
-  }
-
-  // =============================
-  // Populate Filters
-  // =============================
-  function populateFilterOptions() {
-    const curYear = new Date().getFullYear();
-    const curMonth = new Date().getMonth() + 1;
-
-    const years = [];
-    for (let y = 2020; y <= curYear + 5; y++) years.push(y);
-    years.reverse();
-
-    const yearOpts = years.map(y => ({ value: y, text: `${y+543}` }));
-    const monthOpts = Array.from({length: 12}, (_,i) => ({ value: i+1, text: getThaiMonthName(i+1) }));
-
-    // Table filters
-    const fy = document.getElementById("filter-year");
-    const fm = document.getElementById("filter-month");
-    fy.innerHTML = `<option value="">ทุกปี</option>` + yearOpts.map(o => `<option value="${o.value}">${o.text}</option>`).join('');
-    fm.innerHTML = `<option value="">ทุกเดือน</option>` + monthOpts.map(o => `<option value="${o.value}">${o.text}</option>`).join('');
-
-    // Chart filters
-    const cy = document.getElementById("chart-year");
-    const cm = document.getElementById("chart-month");
-    cy.innerHTML = yearOpts.map(o => `<option value="${o.value}">${o.text}</option>`).join('');
-    cm.innerHTML = `<option value="all">ทั้งหมด</option>` + monthOpts.map(o => `<option value="${o.value}">${o.text}</option>`).join('');
-
-    // Default values
-    fy.value = curYear;
-    fm.value = curMonth;
-    document.getElementById("filter-status").value = "";
-
-    cy.value = curYear;
-    cm.value = curMonth;
-    document.getElementById("chart-status").value = "";
-  }
-
-  // =============================
-  // Form logic
-  // =============================
-  function toggleInvForm(type) {
-    const nameInput = document.getElementById("inv-name");
-    const qtyLabel = document.getElementById("inv-qty-label");
-    const unit = document.getElementById("inv-unit");
-    const hint = document.getElementById("inv-hint");
-
-    if (type === "ขายออก") {
-      nameInput.value = "ลูกค้าทั่วไป";
-      nameInput.readOnly = true;
-      nameInput.classList.add("bg-gray-100");
-
-      qtyLabel.innerText = "จำนวน (กระสอบ)";
-      unit.innerText = "กระสอบ";
-      hint.innerHTML = `ระบบจะบันทึกเป็น <b>กิโลกรัม (กระสอบ x 10)</b> อัตโนมัติ`;
     } else {
-      nameInput.value = "";
-      nameInput.readOnly = false;
-      nameInput.classList.remove("bg-gray-100");
-
-      qtyLabel.innerText = "จำนวน (กิโลกรัม)";
-      unit.innerText = "KG";
-      hint.innerHTML = "";
+      if (onConfirm) onConfirm();
+      onClose();
     }
-  }
+  };
 
-  document.getElementById("inv-status").addEventListener("change", (e) => {
-    toggleInvForm(e.target.value);
-  });
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl max-w-xs w-full p-8 shadow-2xl transform scale-100 transition-transform duration-300 ease-out relative">
+        <button onClick={onClose} className="absolute top-2 right-2 text-gray-400 hover:text-gray-600">
+          <X size={24} />
+        </button>
+        <div className="text-center">
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">{title}</h3>
+          {message && <p className="text-gray-700 mb-6 whitespace-pre-wrap">{message}</p>}
+          
+          {showPasswordInput ? (
+            <>
+              <div className="mb-6">
+                <input
+                  type="password"
+                  placeholder="P A S S W O R D"
+                  autoFocus
+                  className={`w-full px-4 py-3 border-2 rounded-lg text-lg text-center ${error ? 'border-red-500' : 'border-gray-300'} focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                  value={passwordValue}
+                  onChange={handlePasswordInputChange}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleConfirmAction();
+                    }
+                  }}
+                />
+                {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+              </div>
+              <div className="flex gap-4">
+                <button onClick={onClose} className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors">
+                  {cancelText}
+                </button>
+                <button onClick={handleConfirmAction} className="flex-1 px-4 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition-colors">
+                  {confirmText}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="flex gap-4">
+              {showCancel && (
+                <button onClick={onClose} className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors">
+                  {cancelText}
+                </button>
+              )}
+              <button onClick={handleConfirmAction} className={`flex-1 px-4 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 transition-colors ${showCancel ? '' : 'w-full'}`}>
+                {confirmText}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
-  // Image preview (max 2)
-  document.getElementById("inv-images").addEventListener("change", (e) => {
-    const files = Array.from(e.target.files || []);
-    const preview = document.getElementById("preview-container");
-    const placeholder = document.getElementById("upload-placeholder");
-
-    preview.innerHTML = "";
-    currentImagesBase64 = [];
-
-    if (files.length > 2) {
-      Swal.fire({ icon:'error', title:'เลือกได้สูงสุด 2 รูป' });
-      e.target.value = "";
-      preview.classList.add("hidden");
-      placeholder.classList.remove("hidden");
-      return;
-    }
-
-    if (files.length === 0) {
-      preview.classList.add("hidden");
-      placeholder.classList.remove("hidden");
-      return;
-    }
-
-    placeholder.classList.add("hidden");
-    preview.classList.remove("hidden");
-
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = reader.result;
-        currentImagesBase64.push(base64);
-        const div = document.createElement("div");
-        div.className = "relative group";
-        div.innerHTML = `
-          <img src="${base64}" class="w-full h-24 object-cover rounded-xl border border-gray-200 bg-white" />
-        `;
-        preview.appendChild(div);
-      };
-      reader.readAsDataURL(file);
-    });
-  });
-
-  // Submit form
-  document.getElementById("inv-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const status = document.getElementById("inv-status").value;
-    const name = document.getElementById("inv-name").value.trim();
-    let qty = parseFloat(document.getElementById("inv-qty").value);
-
-    if (!status || !name || !qty || qty <= 0) {
-      return Swal.fire({ icon:'warning', title:'ข้อมูลไม่ครบถ้วน', text:'กรุณากรอกข้อมูลให้ครบทุกช่อง' });
-    }
-
-    // ✅ FIX: ขายออก = รับเป็น "กระสอบ" แล้วแปลงไปเก็บเป็น KG
-    let storeQtyKg = qty;
-    if (status === "ขายออก") {
-      const stockBags = calculateReadyStockBags();
-      if (qty > stockBags) {
-        return Swal.fire({ icon:'error', title:'สต็อกไม่พอ', text:`ของพร้อมส่ง ${stockBags.toLocaleString()} กระสอบ แต่คุณขาย ${qty.toLocaleString()} กระสอบ` });
+// Custom Tooltip for Charts
+const CustomTooltip = ({ active, payload, label, xAxisKey, year, month }) => {
+  if (active && payload && payload.length) {
+    let formattedLabel = label;
+    if (xAxisKey === 'day' && year && month !== null && month >= 0) {
+      const date = new Date(year, month, label);
+      if (!isNaN(date)) {
+        formattedLabel = date.toLocaleDateString('th-TH', { weekday: 'long', day: 'numeric', month: 'short' });
       }
-      storeQtyKg = qty * 10; // <-- สำคัญ
     }
 
-    const payload = {
-      status,
-      name,
-      quantity: storeQtyKg,
-      images: currentImagesBase64
+    return (
+      <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-lg">
+        <p className="font-bold mb-2">{`${formattedLabel}`}</p>
+        {payload.map((entry, index) => (
+          <p key={`item-${index}`} style={{ color: entry.color }}>
+            {`${entry.name} : ${entry.value.toLocaleString()}`}
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
+
+const App = () => {
+  // Google Sheets configuration
+  const GOOGLE_SHEETS_CONFIG = {
+    webAppUrl: 'https://script.google.com/macros/s/AKfycbyfxWs81WEsrizNnTi82tZAOH_EHX1hKnvUoqsARpYch3TTjEqz5oepiol_vWQ4lK3G0g/exec',
+    spreadsheetId: '18_aq1sA-m7W0ZPOvPs1RDtEoZUIY-9PabPghKo6ZfjE'
+  };
+
+  // Helper to format date to YYYY-MM-DD for input type="date"
+  const formatDateForInput = (date) => {
+    const d = new Date(date);
+    let month = '' + (d.getMonth() + 1);
+    let day = '' + d.getDate();
+    const year = d.getFullYear();
+    if (month.length < 2) month = '0' + month;
+    if (day.length < 2) day = '0' + day;
+    return [year, month, day].join('-');
+  };
+  
+  const parseCSDateString = (dateInput) => {
+    if (!dateInput) return new Date('invalid');
+    if (dateInput instanceof Date) return dateInput;
+
+    if (typeof dateInput === 'string') {
+        const parts = dateInput.split(', ');
+        if (parts.length !== 2) return new Date('invalid');
+
+        const dateParts = parts[0].split('/');
+        const timeParts = parts[1].split(':');
+
+        if (dateParts.length !== 3 || (timeParts.length !== 2 && timeParts.length !== 3)) return new Date('invalid');
+        
+        const day = parseInt(dateParts[0], 10);
+        const month = parseInt(dateParts[1], 10) - 1; // JS month is 0-indexed
+        const year = parseInt(dateParts[2], 10);
+        const hours = parseInt(timeParts[0], 10);
+        const minutes = parseInt(timeParts[1], 10);
+        const seconds = timeParts.length === 3 ? parseInt(timeParts[2], 10) : 0;
+
+        const date = new Date(year, month, day, hours, minutes, seconds);
+        if (isNaN(date.getTime())) {
+            return new Date('invalid');
+        }
+        return date;
+    }
+
+    return new Date('invalid');
+  };
+
+  const formatDateTimeForDisplay = (date) => {
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) return '';
+    return date.toLocaleString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    }).replace(',', '');
+  };
+
+  // Initial values for filters
+  const currentYear = new Date().getFullYear();
+  const currentMonth = (new Date().getMonth() + 1).toString();
+  const todayFormatted = formatDateForInput(new Date());
+
+  // States for managing data and UI
+  const [records, setRecords] = useState([]);
+  const [productionRecords, setProductionRecords] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const [connectionStatus, setConnectionStatus] = useState('disconnected');
+
+  // Form states
+  const [formData, setFormData] = useState({ name: '', status: '', quantity: '', images: [], selectedDate: todayFormatted });
+  const [todayProduced, setTodayProduced] = useState('');
+
+  // UI states
+  const [currentPage, setCurrentPage] = useState('inventory');
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [debounceTimer, setDebounceTimer] = useState(null);
+  const [currentImagePreview, setCurrentImagePreview] = useState(null);
+  const [isManagementUnlocked, setIsManagementUnlocked] = useState(false);
+
+  // Alert modal states
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertOnConfirm, setAlertOnConfirm] = useState(null);
+  const [alertShowCancel, setAlertShowCancel] = useState(false);
+  const [alertConfirmText, setAlertConfirmText] = useState('ตกลง');
+  const [alertCancelText, setAlertCancelText] = useState('ยกเลิก');
+  const [alertPasswordValue, setAlertPasswordValue] = useState('');
+  const [alertShowPasswordInput, setAlertShowPasswordInput] = useState(false);
+  const [alertCorrectPassword, setAlertCorrectPassword] = useState('');
+
+  // Filter states for records table
+  const [filterYear, setFilterYear] = useState(currentYear.toString()); 
+  const [filterMonth, setFilterMonth] = useState(currentMonth); 
+  const [filterStatus, setFilterStatus] = useState('');
+
+  // Filter states for production table
+  const [productionFilterYear, setProductionFilterYear] = useState(currentYear.toString());
+  const [productionFilterMonth, setProductionFilterMonth] = useState(currentMonth);
+
+  // Filter states for general chart
+  const [chartYear, setChartYear] = useState(currentYear.toString());
+  const [isChartYearFilterActive, setIsChartYearFilterActive] = useState(true); 
+  const [isChartMonthFilterActive, setIsChartMonthFilterActive] = useState(true);
+  const [chartSelectedMonth, setChartSelectedMonth] = useState(currentMonth);
+  const [chartStatusFilter, setChartStatusFilter] = useState('');
+
+  // Filter states for production chart
+  const [productionChartYear, setProductionChartYear] = useState(currentYear.toString());
+  const [productionChartMonth, setProductionChartMonth] = useState(currentMonth);
+  const [isProductionChartYearFilterActive, setIsProductionChartYearFilterActive] = useState(true); 
+  const [isProductionChartMonthFilterActive, setIsProductionChartMonthFilterActive] = useState(true);
+
+  // Effect to reset modal-related states when page changes
+  useEffect(() => {
+    setShowModal(false);
+    setSelectedRecord(null);
+    setShowAlertModal(false);
+    setAlertTitle('');
+    setAlertMessage('');
+    setAlertOnConfirm(null);
+    setAlertShowCancel(false);
+    setAlertConfirmText('ตกลง');
+    setAlertCancelText('ยกเลิก');
+    setAlertPasswordValue('');
+    setAlertShowPasswordInput(false);
+    setCurrentImagePreview(null);
+  }, [currentPage]);
+
+  // Google Sheets API functions
+  const sendToGoogleSheets = async (data, type) => {
+    if (!GOOGLE_SHEETS_CONFIG.webAppUrl) {
+      console.warn('Google Sheets not configured');
+      return false;
+    }
+    try {
+      const payload = { action: 'add', type, data };
+      await fetch(GOOGLE_SHEETS_CONFIG.webAppUrl, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        mode: 'no-cors'
+      });
+      console.log('Add request sent successfully.');
+      setConnectionStatus('connected');
+      return true;
+    } catch (error) {
+      console.error('Error sending to Google Sheets:', error);
+      setConnectionStatus('error');
+      openAlert('แจ้งเตือน', 'บันทึกข้อมูลในเครื่องแล้ว แต่ไม่สามารถซิงค์กับ Google Sheets ได้ในขณะนี้');
+      return false;
+    }
+  };
+
+    const deleteFromGoogleSheets = async (id, type) => {
+        if (!GOOGLE_SHEETS_CONFIG.webAppUrl) {
+            console.warn('Google Sheets not configured');
+            return false;
+        }
+        setLoadingMessage('กำลังลบข้อมูล...');
+        setIsLoading(true);
+        try {
+            const payload = { action: 'delete', type, data: { id } };
+            await fetch(GOOGLE_SHEETS_CONFIG.webAppUrl, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                mode: 'no-cors'
+            });
+            console.log(`Delete request for id ${id} in ${type} sent successfully.`);
+            return true;
+        } catch (error) {
+            console.error('Error deleting from Google Sheets:', error);
+            openAlert('ข้อผิดพลาด', 'ไม่สามารถลบข้อมูลจาก Google Sheets ได้ แต่ข้อมูลจะถูกลบออกจากหน้าเว็บนี้');
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    await sendData("add", "Records", payload);
-
-    // reset
-    document.getElementById("inv-form").reset();
-    document.getElementById("preview-container").innerHTML = "";
-    document.getElementById("preview-container").classList.add("hidden");
-    document.getElementById("upload-placeholder").classList.remove("hidden");
-    currentImagesBase64 = [];
-    toggleInvForm(""); // reset UI labels
-  });
-
-  // =============================
-  // Google Sheets IO
-  // =============================
-  async function sendData(action, type, data) {
-    showLoading("กำลังบันทึกข้อมูล...");
-    try {
-      await fetch(GOOGLE_SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, type, data })
-      });
-
-      setTimeout(async () => {
-        await fetchData(false);
-        hideLoading();
-        Swal.fire({ icon:'success', title:'สำเร็จ', text:'บันทึกข้อมูลเรียบร้อยแล้ว', timer: 1300, showConfirmButton:false });
-      }, 1600);
-
-    } catch (err) {
-      hideLoading();
-      Swal.fire({ icon:'error', title:'ผิดพลาด', text: err.message });
-    }
-  }
-
-  async function fetchData(showOverlay = true) {
-    if (showOverlay) showLoading("กำลังโหลดข้อมูล...");
-    try {
-      const res = await fetch(`${GOOGLE_SCRIPT_URL}?action=load&t=${Date.now()}`);
-      const result = await res.json();
-
-      if (!result.success) throw new Error("Load failed");
-
-      // Production
-      appData.production = (result.data.production || []).map(r => ({
-        ...r,
-        bags: parseInt(r.bags) || 0,
-        kilos: parseInt(r.kilos) || 0,
-        timestamp: r.timestamp
-      }));
-
-      // Records + images parsing
-      appData.records = (result.data.records || []).map(r => {
-        let imgs = [];
-        if (r.images) {
-          try { imgs = JSON.parse(r.images); }
-          catch(e) {
-            if (typeof r.images === "string" && r.images.startsWith("data:image")) imgs = [r.images];
-          }
+    const clearSheetInGoogleSheets = async (sheetName) => {
+        if (!GOOGLE_SHEETS_CONFIG.webAppUrl) {
+            console.warn('Google Sheets not configured');
+            return false;
         }
-        return {
-          ...r,
-          quantity: parseFloat(r.quantity) || 0,
-          images: imgs,
-          timestamp: r.timestamp
-        };
-      });
+        setLoadingMessage('กำลังล้างข้อมูล...');
+        setIsLoading(true);
+        try {
+            const payload = { action: 'clearSheet', type: sheetName };
+            await fetch(GOOGLE_SHEETS_CONFIG.webAppUrl, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                mode: 'no-cors'
+            });
+            console.log(`Clear sheet request for ${sheetName} sent successfully.`);
+            return true;
+        } catch (error) {
+            console.error(`Error clearing ${sheetName} in Google Sheets:`, error);
+            openAlert('ข้อผิดพลาด', `ไม่สามารถล้างข้อมูลในชีต ${sheetName} ได้`);
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-      renderStats();
-      renderTable();
-      renderChart();
-
-    } catch (e) {
-      Swal.fire({ icon:'error', title:'โหลดข้อมูลไม่ได้', text:'เช็คการ Deploy WebApp และสิทธิ์ Google Script' });
-    } finally {
-      if (showOverlay) hideLoading();
+  const loadFromGoogleSheets = async (manageLoadingState = true) => {
+    if (!GOOGLE_SHEETS_CONFIG.webAppUrl) {
+      console.warn('Google Sheets not configured');
+      return;
     }
-  }
-
-  async function deleteData(id) {
-    const res = await Swal.fire({
-      title: "ยืนยันการลบ",
-      text: "กรอกรหัสผ่านเพื่อยืนยัน (4455)",
-      input: "password",
-      showCancelButton: true,
-      confirmButtonText: "ลบ",
-      cancelButtonText: "ยกเลิก",
-      confirmButtonColor: "#ef4444"
-    });
-    if (!res.isConfirmed) return;
-    if (res.value !== "4455") return Swal.fire({ icon:"error", title:"รหัสผ่านไม่ถูกต้อง" });
-
-    showLoading("กำลังลบข้อมูล...");
+    if(manageLoadingState) {
+      setLoadingMessage('กำลังโหลดข้อมูล...');
+      setIsLoading(true);
+    }
     try {
-      await fetch(GOOGLE_SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete", type: "Records", data: { id } })
-      });
+      console.log('Loading from Google Sheets...');
+      
+      const url = `${GOOGLE_SHEETS_CONFIG.webAppUrl}?action=load&t=${Date.now()}`;
+      
+      const response = await fetch(url);
 
-      setTimeout(async () => {
-        await fetchData(false);
-        hideLoading();
-        Swal.fire({ icon:"success", title:"ลบข้อมูลสำเร็จ", timer: 1200, showConfirmButton:false });
-      }, 1500);
-
-    } catch (e) {
-      hideLoading();
-      Swal.fire({ icon:"error", title:"ลบไม่สำเร็จ" });
-    }
-  }
-
-  async function clearSheetData() {
-    const res = await Swal.fire({
-      title: "ยืนยันล้างข้อมูลทั้งหมด?",
-      text: "การกระทำนี้ย้อนกลับไม่ได้ (รหัสผ่าน 062261)",
-      icon: "warning",
-      input: "password",
-      showCancelButton: true,
-      confirmButtonText: "ล้างข้อมูล",
-      cancelButtonText: "ยกเลิก",
-      confirmButtonColor: "#ef4444"
-    });
-    if (!res.isConfirmed) return;
-    if (res.value !== "062261") return Swal.fire({ icon:"error", title:"รหัสผ่านไม่ถูกต้อง" });
-
-    showLoading("กำลังล้างข้อมูล...");
-    try {
-      await fetch(GOOGLE_SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "clearSheet", type: "Records" })
-      });
-
-      setTimeout(async () => {
-        await fetchData(false);
-        hideLoading();
-        Swal.fire({ icon:"success", title:"ล้างข้อมูลสำเร็จ", timer: 1200, showConfirmButton:false });
-      }, 1600);
-
-    } catch(e) {
-      hideLoading();
-      Swal.fire({ icon:"error", title:"เกิดข้อผิดพลาด" });
-    }
-  }
-
-  // =============================
-  // Rendering
-  // =============================
-  function renderStats() {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth();
-
-    let totalIn = 0;
-    let totalOut = 0;
-
-    appData.records.forEach(r => {
-      const d = parseDate(r.timestamp);
-      if (d.getFullYear() === y && d.getMonth() === m) {
-        if (r.status === "ซื้อเข้า") totalIn += r.quantity;
-        if (r.status === "ขายออก") totalOut += r.quantity;
-      }
-    });
-
-    document.getElementById("stat-in").innerText = totalIn.toLocaleString();
-    document.getElementById("stat-out").innerText = totalOut.toLocaleString();
-    document.getElementById("stat-stock").innerText = calculateReadyStockBags().toLocaleString();
-  }
-
-  function getFilteredRecords() {
-    const fy = document.getElementById("filter-year").value;
-    const fm = document.getElementById("filter-month").value;
-    const fs = document.getElementById("filter-status").value;
-
-    let filtered = [...appData.records];
-
-    if (fy) filtered = filtered.filter(r => parseDate(r.timestamp).getFullYear() == fy);
-    if (fm) filtered = filtered.filter(r => (parseDate(r.timestamp).getMonth() + 1) == fm);
-    if (fs) filtered = filtered.filter(r => r.status === fs);
-
-    filtered.sort((a,b) => parseDate(b.timestamp) - parseDate(a.timestamp));
-    return filtered;
-  }
-
-  function openImageModal(images) {
-    if (!images || images.length === 0) return;
-    const modal = document.getElementById("img-modal");
-    const container = document.getElementById("img-modal-container");
-    container.innerHTML = "";
-
-    (Array.isArray(images) ? images : [images]).forEach(src => {
-      const img = document.createElement("img");
-      img.src = src;
-      img.className = "max-w-full rounded-xl shadow-2xl border-4 border-white bg-white";
-      container.appendChild(img);
-    });
-
-    modal.classList.remove("hidden");
-    modal.classList.add("flex");
-  }
-
-  function closeImageModal() {
-    const modal = document.getElementById("img-modal");
-    modal.classList.add("hidden");
-    modal.classList.remove("flex");
-  }
-
-  function renderTable() {
-    const tbody = document.getElementById("table-body");
-    const data = getFilteredRecords();
-
-    if (data.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="5" class="p-10 text-center text-gray-500">
-            <div class="text-5xl mb-2"><i class="fa-solid fa-box-open text-gray-300"></i></div>
-            ไม่พบรายการ
-          </td>
-        </tr>
-      `;
-      return;
-    }
-
-    tbody.innerHTML = "";
-
-    data.forEach(r => {
-      const dateStr = formatDateThai(parseDate(r.timestamp));
-
-      // ✅ FIX DISPLAY:
-      // - ซื้อเข้า: แสดง KG อย่างเดียว
-      // - ขายออก: แสดง KG บน และ (กระสอบ) ล่าง
-      let amountHtml = "";
-      if (r.status === "ขายออก") {
-        const bags = (r.quantity / 10);
-        amountHtml = `
-          <div class="font-semibold">${r.quantity.toLocaleString()} กิโลกรัม</div>
-          <div class="text-sm text-gray-500">(${bags.toLocaleString()} กระสอบ)</div>
-        `;
-      } else {
-        amountHtml = `<div class="font-semibold">${r.quantity.toLocaleString()} กิโลกรัม</div>`;
+      if (!response.ok) {
+        throw new Error(`Load failed with status: ${response.status}`);
       }
 
-      const statusBadge = r.status === "ซื้อเข้า"
-        ? `<span class="text-xs px-2 py-0.5 rounded-full bg-green-600 text-white font-bold">ซื้อเข้า</span>`
-        : `<span class="text-xs px-2 py-0.5 rounded-full bg-blue-500 text-white font-bold">ขายออก</span>`;
-
-      const detailBtn = (r.images && r.images.length > 0)
-        ? `<button class="text-indigo-600 hover:text-indigo-800 hover:underline font-semibold" onclick='openImageModal(${JSON.stringify(r.images).replace(/"/g, "&quot;")})'>
-              <i class="fa-solid fa-circle-info"></i> ดูรายละเอียด
-           </button>`
-        : `<span class="text-gray-400 text-sm">ไม่มีรูป</span>`;
-
-      const tr = document.createElement("tr");
-      tr.className = "hover:bg-gray-50 transition text-base";
-      tr.innerHTML = `
-        <td class="p-4 text-center whitespace-nowrap">${dateStr}</td>
-        <td class="p-4 text-center">
-          <div class="flex items-center justify-center gap-2 flex-wrap">
-            <span class="font-medium">${(r.name || "").toString()}</span>
-            ${statusBadge}
-          </div>
-        </td>
-        <td class="p-4 text-center">${amountHtml}</td>
-        <td class="p-4 text-center">${detailBtn}</td>
-        <td class="p-4 text-center">
-          <button onclick="deleteData('${r.id}')" class="w-10 h-10 rounded-full bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-700 transition shadow-sm">
-            <i class="fa-solid fa-trash-can"></i>
-          </button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
-
-  // =============================
-  // Chart
-  // =============================
-  function toggleChartMode() {
-    const useMonth = document.getElementById("chk-chart-month").checked;
-    document.getElementById("chart-year").disabled = !useMonth; // if not month mode => all years
-    document.getElementById("chart-month").disabled = !useMonth;
-    renderChart();
-  }
-
-  function renderChart() {
-    const useMonthMode = document.getElementById("chk-chart-month").checked;
-
-    const yearVal = parseInt(document.getElementById("chart-year").value) || new Date().getFullYear();
-    const monthVal = document.getElementById("chart-month").value;
-    const statusVal = document.getElementById("chart-status").value;
-
-    const isAllMonths = monthVal === "all";
-    const selectedMonth = parseInt(monthVal);
-
-    // yearly mode (if checkbox off)
-    if (!useMonthMode) {
-      const map = {};
-      appData.records.forEach(r => {
-        if (statusVal && r.status !== statusVal) return;
-        const d = parseDate(r.timestamp);
-        const y = d.getFullYear();
-        if (!map[y]) map[y] = { buy: 0, sell: 0 };
-        if (r.status === "ซื้อเข้า") map[y].buy += r.quantity;
-        if (r.status === "ขายออก") map[y].sell += r.quantity;
-      });
-
-      const years = Object.keys(map).sort((a,b)=>a-b);
-      const categories = years.map(y => (parseInt(y)+543).toString());
-      const buySeries = years.map(y => map[y].buy);
-      const sellSeries = years.map(y => map[y].sell);
-
-      renderApexInventory(categories, buySeries, sellSeries, false);
-      return;
-    }
-
-    // monthly aggregate (all months)
-    if (isAllMonths) {
-      const map = {};
-      for (let i=0;i<12;i++) map[i] = { buy:0, sell:0 };
-
-      appData.records.forEach(r => {
-        if (statusVal && r.status !== statusVal) return;
-        const d = parseDate(r.timestamp);
-        if (d.getFullYear() !== yearVal) return;
-        const m = d.getMonth();
-        if (r.status === "ซื้อเข้า") map[m].buy += r.quantity;
-        if (r.status === "ขายออก") map[m].sell += r.quantity;
-      });
-
-      const categories = Array.from({length:12}, (_,i)=>getThaiMonthName(i+1));
-      const buySeries = Array.from({length:12}, (_,i)=>map[i].buy);
-      const sellSeries = Array.from({length:12}, (_,i)=>map[i].sell);
-
-      renderApexInventory(categories, buySeries, sellSeries, false);
-      return;
-    }
-
-    // daily mode (specific month)
-    const startDate = new Date(yearVal, selectedMonth-1, 1);
-    const endDate = new Date(yearVal, selectedMonth, 0);
-    startDate.setHours(0,0,0,0);
-    endDate.setHours(0,0,0,0);
-
-    const dailyMap = {};
-    let iter = new Date(startDate);
-    while (iter <= endDate) {
-      const key = `${iter.getFullYear()}-${String(iter.getMonth()+1).padStart(2,'0')}-${String(iter.getDate()).padStart(2,'0')}`;
-      dailyMap[key] = { buy: 0, sell: 0 };
-      iter.setDate(iter.getDate()+1);
-    }
-
-    appData.records.forEach(r => {
-      if (statusVal && r.status !== statusVal) return;
-      const d = parseDate(r.timestamp);
-      d.setHours(0,0,0,0);
-      if (d < startDate || d > endDate) return;
-
-      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      if (!dailyMap[key]) return;
-      if (r.status === "ซื้อเข้า") dailyMap[key].buy += r.quantity;
-      if (r.status === "ขายออก") dailyMap[key].sell += r.quantity;
-    });
-
-    const categories = Object.keys(dailyMap);
-    const buySeries = categories.map(k => dailyMap[k].buy);
-    const sellSeries = categories.map(k => dailyMap[k].sell);
-
-    renderApexInventory(categories, buySeries, sellSeries, true);
-  }
-
-  function renderApexInventory(categories, buyData, sellData, isScrollable) {
-    const allValues = [...buyData, ...sellData];
-    let maxVal = Math.max(...allValues);
-    maxVal = maxVal > 0 ? Math.ceil(maxVal / 100) * 100 : 100;
-
-    // cleanup
-    if (charts.y) charts.y.destroy();
-    if (charts.main) charts.main.destroy();
-
-    const scroller = document.getElementById("chart-scroller");
-    let calculatedWidth = "100%";
-
-    if (isScrollable) {
-      const containerWidth = scroller.clientWidth || 800;
-      const singleBarWidth = containerWidth / 6; // show ~6 days
-      calculatedWidth = Math.max(containerWidth, categories.length * singleBarWidth);
-    }
-
-    // fixed y
-    charts.y = new ApexCharts(document.querySelector("#chart-y"), {
-      series: [{ name: "dummy", data: buyData }],
-      chart: { type: "bar", height: "100%", width: "100%", fontFamily: "Prompt, sans-serif", toolbar:{show:false}, animations:{enabled:false} },
-      colors: ["transparent"],
-      plotOptions: { bar: { columnWidth: "0%" } },
-      dataLabels: { enabled: false },
-      grid: { show:false, padding:{ top:0, bottom:0, left:8 } },
-      xaxis: { labels:{ show:true, style:{ colors:"transparent" }}, axisBorder:{show:false}, axisTicks:{show:false} },
-      yaxis: {
-        min:0, max:maxVal, tickAmount:5,
-        labels: {
-          formatter: (v)=> Number(v).toLocaleString(),
-          style:{ fontSize:"15px", fontWeight:700, colors:"#64748b" },
-          align:"right",
-          offsetX: -10
-        },
-        axisBorder:{show:false},
-        axisTicks:{show:false}
-      }
-    });
-    charts.y.render();
-
-    // main
-    charts.main = new ApexCharts(document.querySelector("#chart-main"), {
-      series: [
-        { name: "ซื้อเข้า", data: buyData },
-        { name: "ขายออก", data: sellData }
-      ],
-      chart: {
-        type:"bar",
-        height:"100%",
-        width: calculatedWidth,
-        fontFamily:"Prompt, sans-serif",
-        toolbar:{show:false},
-        animations:{enabled:false},
-        stacked:false,
-        zoom:{enabled:false}
-      },
-      colors: ["#22c55e", "#ef4444"],
-      plotOptions: { bar: { borderRadius: 4, columnWidth:"80%" } },
-      dataLabels: {
-        enabled:true,
-        style:{ fontSize:"12px", fontWeight:700, colors:["#000"] },
-        formatter: (v)=> v > 0 ? Number(v).toLocaleString() : ""
-      },
-      legend: { show:true },
-      xaxis: {
-        categories,
-        labels: {
-          style:{ fontSize:"14px", fontWeight:700, colors:"#64748b" },
-          formatter: (val)=>{
-            if (!val) return "";
-            if (typeof val === "string" && val.includes("-")) {
-              const d = new Date(val);
-              if (!isNaN(d.getTime())) return d.getDate();
+      const text = await response.text();
+      if (!text) throw new Error('Empty response from Google Sheets');
+      
+      const result = JSON.parse(text);
+      
+      if (result.success) {
+        if (result.data && result.data.records) {
+          const parsedRecords = result.data.records.map(record => {
+            let imagesArray = [];
+            if (record.images && typeof record.images === 'string') {
+              try {
+                // First, try to parse it as a JSON array (for new data)
+                imagesArray = JSON.parse(record.images);
+              } catch (e) {
+                // If parsing fails, it might be an old single Base64 string
+                if (record.images.startsWith('data:image')) {
+                  imagesArray = [record.images];
+                }
+              }
             }
-            return val;
-          }
-        },
-        axisTicks:{show:false}
-      },
-      yaxis: { show:false, min:0, max:maxVal, tickAmount:5 },
-      grid: { borderColor:"#cbd5e1", strokeDashArray:4, padding:{left:16,right:16,top:0,bottom:0} },
-      tooltip: { enabled:false }
-    });
-    charts.main.render();
+            return {
+              ...record,
+              quantity: parseFloat(String(record.quantity).replace(/,/g, '')) || 0,
+              timestamp: parseCSDateString(record.timestamp),
+              images: imagesArray
+            };
+          });
+          setRecords(parsedRecords);
+        }
 
-    if (isScrollable) scroller.scrollLeft = 0;
+        if (result.data && result.data.production) {
+          const parsedProduction = result.data.production.map(record => ({
+            ...record,
+            bags: parseInt(String(record.bags).replace(/,/g, ''), 10) || 0,
+            kilos: parseInt(String(record.kilos).replace(/,/g, ''), 10) || 0,
+            timestamp: parseCSDateString(record.timestamp)
+          }));
+          setProductionRecords(parsedProduction);
+        }
+
+        setConnectionStatus('connected');
+        console.log('Successfully loaded data from Google Sheets');
+      } else {
+        throw new Error(result.error || 'Unknown error from Google Sheets');
+      }
+    } catch (error) {
+      console.error('Error loading from Google Sheets:', error);
+      if (error instanceof TypeError) {
+        openAlert(
+          'ข้อผิดพลาดในการเชื่อมต่อ', 
+          'ไม่สามารถโหลดข้อมูลจาก Google Sheets ได้ กรุณาตรวจสอบการตั้งค่าสคริปต์ (ต้อง Deploy และให้สิทธิ์การเข้าถึงแก่ "ทุกคน") และการเชื่อมต่ออินเทอร์เน็ตของคุณ'
+        );
+      } else {
+        openAlert('เกิดข้อผิดพลาด', 'ไม่สามารถโหลดข้อมูลได้: ' + error.message);
+      }
+      setConnectionStatus('disconnected');
+      console.log('Using local data only');
+    } finally {
+      if(manageLoadingState) {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    loadFromGoogleSheets();
+  }, []);
+
+  const openAlert = (title, message, onConfirm = null, showCancel = false, confirmText = 'ตกลง', cancelText = 'ยกเล็ก', showPasswordInput = false, correctPassword = '') => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertOnConfirm(() => onConfirm);
+    setAlertShowCancel(showCancel);
+    setAlertConfirmText(confirmText);
+    setAlertCancelText(cancelText);
+    setAlertPasswordValue('');
+    setAlertShowPasswordInput(showPasswordInput);
+    setAlertCorrectPassword(correctPassword);
+    setShowAlertModal(true);
+  };
+
+  const closeAlert = () => {
+    setShowAlertModal(false);
+    setAlertTitle('');
+    setAlertMessage('');
+    setAlertOnConfirm(null);
+    setAlertShowCancel(false);
+    setAlertConfirmText('ตกลง');
+    setAlertCancelText('ยกเลิก');
+    setAlertPasswordValue('');
+    setAlertShowPasswordInput(false);
+    setAlertCorrectPassword('');
+  };
+
+  const handleTodayProducedChange = (e) => {
+    const value = e.target.value;
+    setTodayProduced(value);
+    setShowConfirmModal(false);
+    if (debounceTimer) clearTimeout(debounceTimer);
+    if (value && value > 0) {
+      setDebounceTimer(setTimeout(() => setShowConfirmModal(true), 1000));
+    }
+  };
+
+  const handleConfirmSubmit = () => {
+    handleProductionSubmit();
+    setShowConfirmModal(false);
+  };
+
+  const handleCancelSubmit = () => {
+    setTodayProduced('');
+    setShowConfirmModal(false);
+    if (debounceTimer) clearTimeout(debounceTimer);
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    if (name === 'status') {
+      setFormData(prev => ({ ...prev, [name]: value, name: '' }));
+    } else if (name === 'name' && formData.status === 'ขายออก') {
+      return;
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleImageChange = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 1) {
+      openAlert('ข้อผิดพลาด', 'สามารถเลือกรูปภาพได้เพียง 1 รูปเท่านั้น');
+      e.target.value = null;
+      return;
+    }
+    
+    const imagePromises = files.map(file => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.readAsDataURL(file);
+      });
+    });
+    
+    const base64Images = await Promise.all(imagePromises);
+    setFormData(prev => ({ ...prev, images: base64Images }));
+  };
+
+  const removeImage = (index) => {
+    setFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
+  };
+
+  const handleDetailsClick = (record) => {
+    setSelectedRecord(record);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedRecord(null);
+    setCurrentImagePreview(null);
+  };
+
+  const getTodayTotalProduction = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return productionRecords.reduce((total, record) => {
+      const recordDate = new Date(record.timestamp);
+      recordDate.setHours(0, 0, 0, 0);
+      return recordDate.getTime() === today.getTime() ? total + record.bags : total;
+    }, 0);
+  };
+
+  const getMonthlyTotalProduction = useMemo(() => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+    return productionRecords.reduce((total, record) => {
+      const recordDate = new Date(record.timestamp);
+      if (recordDate.getFullYear() === currentYear && recordDate.getMonth() === currentMonth) {
+        return total + record.bags;
+      }
+      return total;
+    }, 0);
+  }, [productionRecords]);
+
+  const readyForShipping = useMemo(() => {
+    const totalProducedBags = productionRecords.reduce((total, record) => total + record.bags, 0);
+    const totalSoldBags = records
+        .filter(record => record.status === 'ขายออก')
+        .reduce((total, record) => total + (record.quantity / 10), 0);
+    return totalProducedBags - totalSoldBags;
+  }, [records, productionRecords]);
+
+  const handleProductionSubmit = async () => {
+    if (!todayProduced || todayProduced <= 0) {
+      openAlert('ข้อผิดพลาด', 'กรุณากรอกจำนวนที่ทำได้วันนี้');
+      return;
+    }
+    const newProductionRecord = {
+      bags: parseInt(todayProduced),
+      kilos: parseInt(todayProduced) * 10
+    };
+    
+    setLoadingMessage('กำลังบันทึกข้อมูล...');
+    setIsLoading(true);
+    const success = await sendToGoogleSheets(newProductionRecord, 'Production');
+    if (success) {
+      setTimeout(async () => {
+          await loadFromGoogleSheets(false);
+          setIsLoading(false);
+          openAlert('สำเร็จ', 'บันทึกข้อมูลเรียบร้อยแล้ว');
+      }, 2500);
+    } else {
+        setIsLoading(false);
+    }
+    setTodayProduced('');
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.quantity || !formData.status || (formData.status === 'ซื้อเข้า' && !formData.name)) {
+      openAlert('ข้อผิดพลาด', 'กรุณากรอกข้อมูลให้ครบถ้วน');
+      return;
+    }
+
+    let finalQuantityForRecord = parseFloat(formData.quantity);
+    
+    if (formData.status === 'ขายออก') {
+      const soldBags = parseFloat(formData.quantity);
+      if (soldBags > readyForShipping) {
+        openAlert('ข้อผิดพลาด', `จำนวนที่ขายออก (${soldBags.toLocaleString()} กระสอบ) เกินกว่าจำนวนของพร้อมส่ง (${readyForShipping.toLocaleString()} กระสอบ)`);
+        return;
+      }
+      finalQuantityForRecord = soldBags * 10;
+    }
+
+    const newRecord = {
+      name: formData.name || 'ลูกค้า',
+      status: formData.status,
+      quantity: finalQuantityForRecord,
+      images: formData.images
+    };
+    
+    setLoadingMessage('กำลังบันทึกข้อมูล...');
+    setIsLoading(true);
+    const success = await sendToGoogleSheets(newRecord, 'Records');
+    if (success) {
+        setTimeout(async () => {
+            await loadFromGoogleSheets(false);
+            setIsLoading(false);
+            openAlert('สำเร็จ', 'บันทึกข้อมูลเรียบร้อยแล้ว');
+        }, 2500);
+    } else {
+        setIsLoading(false);
+    }
+    setFormData({ name: '', status: '', quantity: '', images: [], selectedDate: todayFormatted });
+  };
+
+    const handleDeleteRecord = (id, status, quantity) => {
+        openAlert(
+            'ยืนยันการลบ',
+            `คุณต้องการลบรายการ ID: ${id}\nกรุณากรอกรหัสผ่านเพื่อยืนยัน`,
+            async () => {
+                await deleteFromGoogleSheets(id, 'Records');
+                setRecords(prevRecords => prevRecords.filter(record => record.id !== id));
+                openAlert('สำเร็จ', 'ลบข้อมูลเรียบร้อยแล้ว');
+            },
+            true, 'ลบ', 'ยกเลิก', true, '4455'
+        );
+    };
+
+    const handleDeleteProductionRecord = (id, bags) => {
+        openAlert(
+            'ยืนยันการลบ',
+            `คุณต้องการลบรายการ ID: ${id}\nกรุณากรอกรหัสผ่านเพื่อยืนยัน`,
+            async () => {
+                await deleteFromGoogleSheets(id, 'Production');
+                setProductionRecords(prevRecords => prevRecords.filter(record => record.id !== id));
+                openAlert('สำเร็จ', 'ลบข้อมูลเรียบร้อยแล้ว');
+            },
+            true, 'ลบ', 'ยกเลิก', true, '4455'
+        );
+    };
+
+    const handleClearPageData = (sheetName) => {
+        openAlert(
+            `ยืนยันการล้างข้อมูลหน้า${sheetName === 'Production' ? 'ปริมาณสินค้า' : 'รายงานสถานะ'}`,
+            'การกระทำนี้ไม่สามารถย้อนกลับได้ ข้อมูลทั้งหมดในหน้านี้จะถูกลบอย่างถาวร กรุณากรอกรหัสผ่านเพื่อยืนยัน',
+            async () => {
+                const success = await clearSheetInGoogleSheets(sheetName);
+                if (success) {
+                    if (sheetName === 'Production') {
+                        setProductionRecords([]);
+                    } else if (sheetName === 'Records') {
+                        setRecords([]);
+                    }
+                    openAlert('สำเร็จ', 'ข้อมูลในหน้านี้ถูกล้างเรียบร้อยแล้ว');
+                }
+            },
+            true,
+            'ยืนยันการล้างข้อมูล',
+            'ยกเลิก',
+            true,
+            '062261'
+        );
+    };
+
+  const getFilteredRecords = () => {
+    let filtered = [...records];
+    if (filterYear) {
+      const selectedYear = parseInt(filterYear);
+      filtered = filtered.filter(record => record.timestamp.getFullYear() === selectedYear);
+    }
+    if (filterMonth) {
+      filtered = filtered.filter(record => (record.timestamp.getMonth() + 1).toString() === filterMonth);
+    }
+    if (filterStatus) {
+      filtered = filtered.filter(record => record.status === filterStatus);
+    }
+    return filtered.reverse();
+  };
+
+  const getFilteredProductionRecords = () => {
+    let filtered = [...productionRecords];
+    if (productionFilterYear) {
+      const selectedYear = parseInt(productionFilterYear);
+      filtered = filtered.filter(record => record.timestamp.getFullYear() === selectedYear);
+    }
+    if (productionFilterMonth) {
+      filtered = filtered.filter(record => (record.timestamp.getMonth() + 1).toString() === productionFilterMonth);
+    }
+    return filtered.reverse();
+  };
+
+  const getAvailableYears = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let year = 2020; year <= currentYear + 5; year++) {
+      years.push(year);
+    }
+    return years.sort((a, b) => b - a);
+  };
+
+  const getThaiMonthName = (monthNumber) => {
+    const monthNames = [
+      'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน',
+      'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม',
+      'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    ];
+    return monthNames[parseInt(monthNumber) - 1];
+  };
+
+  const prepareChartData = (dataRecords, filterConfig, dataType) => {
+    let filteredData = [...dataRecords];
+    let xAxisKey = '';
+    let aggregatedData = {};
+    let totalSummary = { totalBuyIn: 0, totalSellOut: 0 };
+
+    const selectedYear = parseInt(filterConfig.year);
+    const selectedMonth = parseInt(filterConfig.month) - 1;
+
+    if (filterConfig.yearActive) {
+      filteredData = filteredData.filter(record => record.timestamp.getFullYear() === selectedYear);
+    }
+
+    if (filterConfig.monthActive) {
+      filteredData = filteredData.filter(record => record.timestamp.getMonth() === selectedMonth);
+    }
+
+    if (filterConfig.yearActive && filterConfig.monthActive) {
+      xAxisKey = 'day';
+      const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+      for (let day = 1; day <= daysInMonth; day++) {
+        aggregatedData[day] = { day: day };
+        if (dataType === 'general') {
+          aggregatedData[day]['ซื้อเข้า'] = 0;
+          aggregatedData[day]['ขายออก'] = 0;
+        } else {
+          aggregatedData[day]['จำนวนกระสอบที่ผลิตได้'] = 0;
+        }
+      }
+    } else if (filterConfig.yearActive && !filterConfig.monthActive) {
+      xAxisKey = 'month';
+      const monthOrder = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+      monthOrder.forEach(monthName => {
+        aggregatedData[monthName] = { month: monthName };
+        if (dataType === 'general') {
+          aggregatedData[monthName]['ซื้อเข้า'] = 0;
+          aggregatedData[monthName]['ขายออก'] = 0;
+        } else {
+          aggregatedData[monthName]['จำนวนกระสอบที่ผลิตได้'] = 0;
+        }
+      });
+    } else {
+      xAxisKey = 'year';
+      if (dataType === 'production' && filterConfig.monthActive && !filterConfig.yearActive) {
+        xAxisKey = 'period';
+        const allYearsInRecords = [...new Set(dataRecords.map(r => r.timestamp.getFullYear()))].sort((a, b) => a - b);
+        allYearsInRecords.forEach(y => {
+          const monthName = new Date(y, selectedMonth, 1).toLocaleDateString('th-TH', { month: 'long' });
+          const key = `${monthName} ${y}`;
+          aggregatedData[key] = { period: key, 'จำนวนกระสอบที่ผลิตได้': 0 };
+        });
+      } else {
+        const allYearsInRecords = [...new Set(dataRecords.map(r => r.timestamp.getFullYear()))].sort((a, b) => a - b);
+        allYearsInRecords.forEach(y => {
+          aggregatedData[y] = { year: y };
+          if (dataType === 'general') {
+            aggregatedData[y]['ซื้อเข้า'] = 0;
+            aggregatedData[y]['ขายออก'] = 0;
+          } else {
+            aggregatedData[y]['จำนวนกระสอบที่ผลิตได้'] = 0;
+          }
+        });
+      }
+    }
+
+    filteredData.forEach(record => {
+      let key;
+      if (xAxisKey === 'day') {
+        key = record.timestamp.getDate();
+      } else if (xAxisKey === 'month') {
+        key = record.timestamp.toLocaleDateString('th-TH', { month: 'long' });
+      } else if (xAxisKey === 'period') {
+        const monthName = new Date(record.timestamp.getFullYear(), record.timestamp.getMonth(), 1).toLocaleDateString('th-TH', { month: 'long' });
+        key = `${monthName} ${record.timestamp.getFullYear()}`;
+      } else {
+        key = record.timestamp.getFullYear();
+      }
+
+      if (aggregatedData[key]) {
+        if (dataType === 'general') {
+          if (filterConfig.statusFilter === '' || record.status === filterConfig.statusFilter) {
+            if (record.status === 'ซื้อเข้า') {
+              aggregatedData[key]['ซื้อเข้า'] += record.quantity;
+              if (filterConfig.yearActive && filterConfig.monthActive) {
+                totalSummary.totalBuyIn += record.quantity;
+              }
+            } else {
+              aggregatedData[key]['ขายออก'] += record.quantity;
+              if (filterConfig.yearActive && filterConfig.monthActive) {
+                totalSummary.totalSellOut += record.quantity;
+              }
+            }
+          }
+        } else {
+          aggregatedData[key]['จำนวนกระสอบที่ผลิตได้'] += record.bags;
+        }
+      }
+    });
+
+    let finalChartData = Object.values(aggregatedData);
+
+    if (xAxisKey === 'month') {
+      const monthOrder = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+      finalChartData.sort((a, b) => monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month));
+    } else if (xAxisKey === 'year' || xAxisKey === 'day') {
+      finalChartData.sort((a, b) => a[xAxisKey] - b[xAxisKey]);
+    } else if (xAxisKey === 'period') {
+      finalChartData.sort((a, b) => {
+        const yearA = parseInt(a.period.split(' ')[1]);
+        const yearB = parseInt(b.period.split(' ')[1]);
+        return yearA - yearB;
+      });
+    }
+
+    if (dataType === 'general') {
+      return { data: finalChartData, xAxisKey: xAxisKey, summary: totalSummary };
+    } else {
+      return finalChartData;
+    }
+  };
+
+  const filteredRecords = useMemo(() => getFilteredRecords(), [records, filterYear, filterMonth, filterStatus]);
+  const filteredProductionRecords = useMemo(() => getFilteredProductionRecords(), [productionRecords, productionFilterYear, productionFilterMonth]);
+  const availableYears = useMemo(() => getAvailableYears(), []);
+  
+  const monthlyStats = useMemo(() => {
+    let filtered = records;
+    if (filterYear) {
+      const selectedYear = parseInt(filterYear);
+      filtered = filtered.filter(record => record.timestamp.getFullYear() === selectedYear);
+    }
+    if (filterMonth) {
+        const selectedMonthIndex = parseInt(filterMonth) - 1;
+        filtered = filtered.filter(record => record.timestamp.getMonth() === selectedMonthIndex);
+    }
+
+    return filtered.reduce((acc, record) => {
+        if (record.status === 'ซื้อเข้า') {
+            acc.totalIn += record.quantity;
+        } else if (record.status === 'ขายออก') {
+            acc.totalOut += record.quantity;
+        }
+        return acc;
+    }, { totalIn: 0, totalOut: 0 });
+  }, [records, filterYear, filterMonth]);
+  
+  const currentMonthName = useMemo(() => {
+    if(filterMonth) return getThaiMonthName(filterMonth);
+    return 'เดือนปัจจุบัน';
+  }, [filterMonth]);
+
+  const { data: chartData, xAxisKey, summary: chartSummary } = useMemo(() => prepareChartData(
+    records,
+    {
+      year: chartYear,
+      month: chartSelectedMonth,
+      yearActive: isChartYearFilterActive,
+      monthActive: isChartMonthFilterActive,
+      statusFilter: chartStatusFilter
+    },
+    'general'
+  ), [records, chartYear, chartSelectedMonth, isChartYearFilterActive, isChartMonthFilterActive, chartStatusFilter]);
+
+  const productionChartData = useMemo(() => prepareChartData(
+    productionRecords,
+    {
+      year: productionChartYear,
+      month: productionChartMonth,
+      yearActive: isProductionChartYearFilterActive,
+      monthActive: isProductionChartMonthFilterActive,
+      statusFilter: ''
+    },
+    'production'
+  ), [productionRecords, productionChartYear, productionChartMonth, isProductionChartYearFilterActive, isProductionChartMonthFilterActive]);
+
+  // Calculate total for the production chart status bar
+  const productionChartTotal = useMemo(() => {
+    if (!productionChartData) return 0;
+    return productionChartData.reduce((sum, item) => sum + (item['จำนวนกระสอบที่ผลิตได้'] || 0), 0);
+  }, [productionChartData]);
+
+  const chartBrushIndices = useMemo(() => {
+    if (!isChartMonthFilterActive || chartData.length <= 10) {
+      return { startIndex: undefined, endIndex: undefined };
+    }
+    const lastDataIndex = chartData.findLastIndex(d => (d['ซื้อเข้า'] || 0) + (d['ขายออก'] || 0) > 0);
+
+    if (lastDataIndex === -1) {
+      return { startIndex: Math.max(0, chartData.length - 10), endIndex: chartData.length - 1 };
+    }
+
+    const endIndex = Math.min(chartData.length - 1, lastDataIndex + 4);
+    const startIndex = Math.max(0, endIndex - 9);
+
+    return { startIndex, endIndex };
+  }, [chartData, isChartMonthFilterActive]);
+
+  const productionBrushIndices = useMemo(() => {
+    if (!isProductionChartMonthFilterActive || productionChartData.length <= 10) {
+        return { startIndex: undefined, endIndex: undefined };
+    }
+    const lastDataIndex = productionChartData.findLastIndex(d => d['จำนวนกระสอบที่ผลิตได้'] > 0);
+
+    if (lastDataIndex === -1) {
+        return { startIndex: Math.max(0, productionChartData.length - 10), endIndex: productionChartData.length - 1 };
+    }
+    
+    const endIndex = Math.min(productionChartData.length - 1, lastDataIndex + 4);
+    const startIndex = Math.max(0, endIndex - 9);
+    
+    return { startIndex, endIndex };
+  }, [productionChartData, isProductionChartMonthFilterActive]);
+
+  if (currentPage === 'inventory') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-100 to-green-200 p-4 md:p-8 relative">
+        <button
+            onClick={() => openAlert('กรุณากรอกรหัสผ่าน', 'เพื่อเข้าสู่หน้ารายงานสถานะสินค้า', () => setCurrentPage('management'), true, 'ยืนยัน', 'ยกเลิก', true, '4455')}
+            className="absolute top-8 right-8 z-20 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-3 rounded-full font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 flex items-center gap-2"
+        >
+            <FileText size={20} />
+            <span>รายงานสถานะสินค้า</span>
+        </button>
+
+        {isLoading && <LoadingOverlay message={loadingMessage} />}
+        {showAlertModal && <CustomAlertModal title={alertTitle} message={alertMessage} onClose={closeAlert} onConfirm={alertOnConfirm} showCancel={alertShowCancel} confirmText={alertConfirmText} cancelText={alertCancelText} showPasswordInput={alertShowPasswordInput} passwordValue={alertPasswordValue} onPasswordChange={setAlertPasswordValue} correctPassword={alertCorrectPassword} />}
+        {showModal && selectedRecord && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+            <div className="bg-white rounded-xl sm:rounded-2xl w-full max-w-sm sm:max-w-2xl lg:max-w-4xl p-4 sm:p-6 lg:p-8 shadow-2xl transform scale-100 transition-transform duration-300 ease-out max-h-[95vh] overflow-y-auto">
+              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 mb-4 sm:mb-6 text-center">รูปภาพประกอบรายการ</h3>
+              {selectedRecord.images && selectedRecord.images.length > 0 ? (
+                <div className="mb-4 sm:mb-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
+                    {selectedRecord.images.map((image, index) => (
+                      <div key={`${selectedRecord.id}-image-${index}`} className="relative group">
+                        <img
+                          src={image}
+                          alt={`ประกอบ ${index + 1}`}
+                          className="w-full h-40 sm:h-48 md:h-56 lg:h-80 object-contain rounded-lg shadow-md cursor-pointer hover:opacity-90 transition-opacity border border-gray-200 bg-gray-50"
+                          onClick={() => setCurrentImagePreview(image)}
+                          onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/400x300/cccccc/000000?text=Image+Not+Found"; }}
+                        />
+                        <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-xs sm:text-sm">
+                          รูปที่ {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 sm:py-12">
+                  <Package className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 text-gray-300" />
+                  <p className="text-gray-500 text-base sm:text-lg">ไม่มีรูปภาพสำหรับรายการนี้</p>
+                </div>
+              )}
+
+              {currentImagePreview && (
+                <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-50 p-2 sm:p-4">
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    <button
+                      onClick={() => setCurrentImagePreview(null)}
+                      className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-white bg-opacity-90 hover:bg-opacity-100 rounded-full p-2 sm:p-3 shadow-lg transition-all z-10"
+                      title="ปิดรูปภาพ"
+                    >
+                      <X className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
+                    </button>
+                    <img 
+                      src={currentImagePreview} 
+                      alt="Preview" 
+                      className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                      style={{ maxWidth: '95vw', maxHeight: '95vh' }}
+                    />
+                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-60 text-white px-3 py-2 rounded-full text-sm sm:hidden">
+                      แตะเพื่อปิด
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={closeModal}
+                className="w-full bg-blue-500 text-white py-2.5 sm:py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors text-base sm:text-lg"
+              >
+                ปิด
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="max-w-7xl mx-auto space-y-8 md:max-w-full lg:max-w-7xl">
+          <div className="text-center pt-16">
+            <h1 className="text-5xl font-black text-gray-800 mb-2 md:text-6xl">ปริมาณสินค้า</h1>
+            <p className="text-lg text-gray-600 mb-8 md:text-xl">เกล็ดปลาตากแห้ง</p>
+          </div>
+
+          <div className="flex justify-center">
+            <div className="flex flex-wrap justify-center gap-4 max-w-7xl mx-auto md:max-w-full lg:max-w-7xl">
+              <div className="bg-gradient-to-br from-emerald-100 to-emerald-200 border border-emerald-300 p-6 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 relative flex flex-col justify-between min-w-[280px] flex-1 md:min-w-[300px]">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-emerald-800 md:text-xl">จำนวนที่ทำได้วันนี้</h3>
+                  <div className="bg-emerald-500 p-2 rounded-full">
+                    <Package className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+                <div className="text-center relative">
+                  <p className="text-5xl font-bold text-emerald-900 mb-2 md:text-6xl">{getTodayTotalProduction().toLocaleString()}</p>
+                  <div className="bg-emerald-500 text-white px-3 py-1 rounded-full text-sm font-medium absolute bottom-0 right-0">
+                    กระสอบ
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-violet-100 to-violet-200 border border-violet-300 p-6 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 relative flex flex-col justify-between min-w-[280px] flex-1 md:min-w-[300px]">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-violet-800 md:text-xl whitespace-nowrap">จำนวนที่ทำได้ ({currentMonthName})</h3>
+                  <div className="bg-violet-500 p-2 rounded-full">
+                    <Calendar className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+                <div className="text-center relative">
+                  <p className="text-5xl font-bold text-violet-900 mb-2 md:text-6xl">{getMonthlyTotalProduction.toLocaleString()}</p>
+                  <div className="bg-violet-500 text-white px-3 py-1 rounded-full text-sm font-medium absolute bottom-0 right-0">
+                    กระสอบ
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-sky-100 to-sky-200 border border-sky-300 p-6 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 relative flex flex-col justify-between min-w-[280px] flex-1 md:min-w-[300px]">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-sky-800 md:text-xl">จำนวนของพร้อมส่ง</h3>
+                  <div className="bg-sky-500 p-2 rounded-full">
+                    <TrendingUp className="w-6 h-6 text-white" />
+                  </div>
+                </div>
+                <div className="text-center relative">
+                  <p className="text-5xl font-bold text-sky-900 mb-2 md:text-6xl">{readyForShipping.toLocaleString()}</p>
+                  <div className="bg-sky-500 text-white px-3 py-1 rounded-full text-sm font-medium absolute bottom-0 right-0">
+                    กระสอบ
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-8 md:p-10">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-3 rounded-2xl">
+                <FlaskConical className="w-6 h-6 text-white" />
+              </div>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent md:text-4xl">
+                บันทึกการผลิตวันนี้
+              </h2>
+            </div>
+            <div className="space-y-6">
+              <div className="flex items-center justify-center gap-4 md:gap-6">
+                <label className="text-lg font-semibold text-slate-700 md:text-xl">จำนวนที่ทำได้วันนี้</label>
+                <input
+                  type="number"
+                  value={todayProduced}
+                  onChange={handleTodayProducedChange}
+                  className="w-32 px-4 py-3 text-2xl font-bold text-center border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white placeholder:text-center md:w-40 md:text-3xl md:py-4"
+                  placeholder="0"
+                  min="0"
+                  style={{ appearance: 'textfield', MozAppearance: 'textfield' }}
+                />
+                <span className="text-lg font-semibold text-slate-700 md:text-xl">กระสอบ</span>
+              </div>
+            </div>
+          </div>
+
+          {showConfirmModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl max-w-md w-full p-8 shadow-2xl transform scale-100 transition-transform duration-300 ease-out">
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold text-gray-800 mb-4">ยืนยันการบันทึก</h3>
+                  <div className="bg-amber-50 rounded-lg p-4 mb-6">
+                    <p className="text-lg text-amber-800 mb-2">จำนวนที่ทำได้วันนี้</p>
+                    <p className="text-3xl font-bold text-amber-600 mb-2">
+                      {parseInt(todayProduced || 0).toLocaleString()} กระสอบ
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      ({(parseInt(todayProduced || 0) * 10).toLocaleString()} กิโลกรัม)
+                    </p>
+                    <p className="text-sm text-gray-600 mt-2">
+                      วันที่: {new Date().toLocaleDateString('en-GB')}
+                    </p>
+                  </div>
+                  <div className="flex gap-4">
+                    <button
+                      onClick={handleCancelSubmit}
+                      className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      onClick={handleConfirmSubmit}
+                      className="flex-1 px-4 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 font-medium transition-colors"
+                    >
+                      ยืนยัน
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-8 md:p-10">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-3 rounded-2xl">
+                <History className="w-6 h-6 text-white" />
+              </div>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent md:text-4xl">
+                รายการผลิตย้อนหลัง
+              </h2>
+            </div>
+
+            <div className="mb-6 flex flex-wrap items-center gap-4 md:gap-6">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-semibold text-slate-700 whitespace-nowrap md:text-base">ปี:</label>
+                <select
+                  value={productionFilterYear}
+                  onChange={(e) => setProductionFilterYear(e.target.value)}
+                  className="px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-white min-w-[120px] md:min-w-[140px] md:text-base md:py-2.5"
+                >
+                  <option value="">ทั้งหมด</option>
+                  {availableYears.map(year => (<option key={year} value={year}>{year}</option>))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-semibold text-slate-700 whitespace-nowrap md:text-base">เดือน:</label>
+                <select
+                  value={productionFilterMonth}
+                  onChange={(e) => setProductionFilterMonth(e.target.value)}
+                  className="px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-white min-w-[120px] md:min-w-[140px] md:text-base md:py-2.5"
+                >
+                  <option value="">ทั้งหมด</option>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(monthNum => {
+                    const monthName = new Date(2000, monthNum - 1, 1).toLocaleDateString('th-TH', { month: 'long' });
+                    return <option key={monthNum} value={monthNum.toString()}>{monthName}</option>;
+                  })}
+                </select>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto max-h-80">
+              <table className="min-w-full bg-white">
+                <thead>
+                  <tr>
+                    <th className="py-3 px-4 text-center text-sm font-semibold text-gray-700 md:text-base">วันที่/เวลา</th>
+                    <th className="py-3 px-4 text-center text-sm font-semibold text-gray-700 md:text-base">จำนวนกระสอบที่ผลิตได้</th>
+                    <th className="py-3 px-4 text-center text-sm font-semibold text-gray-700 md:text-base">จำนวน (KG)</th>
+                    <th className="py-3 px-4 text-center text-sm font-semibold text-gray-700 md:text-base"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProductionRecords.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" className="text-center py-8 text-gray-500">
+                        <Package className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                        <p>ไม่พบรายการผลิตที่ตรงกับตัวกรอง</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredProductionRecords.map((record, index) => (
+                      <tr key={`production-${record.id}-${index}`} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4 text-center text-sm text-gray-800 md:text-base">
+                          {formatDateTimeForDisplay(record.timestamp)}
+                        </td>
+                        <td className="py-3 px-4 text-center text-sm text-gray-800 md:text-base">
+                          {record.bags.toLocaleString()} กระสอบ
+                        </td>
+                        <td className="py-3 px-4 text-center text-sm text-gray-800 md:text-base">
+                          {record.kilos.toLocaleString()} กิโลกรัม
+                        </td>
+                        <td className="py-3 px-4 text-center text-sm">
+                          <button
+                            onClick={() => handleDeleteProductionRecord(record.id, record.bags)}
+                            className="bg-red-100 text-red-700 p-2 rounded-full hover:bg-red-200 transition-colors"
+                            title="ลบรายการ"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-8 md:p-10">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-3 rounded-2xl">
+                <BarChart3 className="w-6 h-6 text-white" />
+              </div>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent md:text-4xl">
+                จำนวนที่ทำได้ในแต่ละวัน
+              </h2>
+            </div>
+            <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="toggleProductionChartYearFilter"
+                  checked={isProductionChartYearFilterActive}
+                  onChange={(e) => {
+                    setIsProductionChartYearFilterActive(e.target.checked);
+                    if (!e.target.checked) {
+                      setIsProductionChartMonthFilterActive(false);
+                      setProductionChartMonth('');
+                    }
+                  }}
+                  className="form-checkbox h-5 w-5 text-blue-600 rounded"
+                />
+                <label htmlFor="toggleProductionChartYearFilter" className="font-medium text-gray-700 md:text-base">ปี:</label>
+                <select
+                  id="productionChartYear"
+                  value={productionChartYear}
+                  onChange={(e) => setProductionChartYear(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 md:px-4 md:py-2.5 md:text-base"
+                  disabled={!isProductionChartYearFilterActive}
+                >
+                  {availableYears.map(year => (<option key={year} value={year}>{year}</option>))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="toggleProductionChartMonthFilter"
+                  checked={isProductionChartMonthFilterActive}
+                  onChange={(e) => {
+                    setIsProductionChartMonthFilterActive(e.target.checked);
+                    if (!e.target.checked) setProductionChartMonth('');
+                  }}
+                  className="form-checkbox h-5 w-5 text-blue-600 rounded"
+                  disabled={!isProductionChartYearFilterActive}
+                />
+                <label htmlFor="toggleProductionChartMonthFilter" className="font-medium text-gray-700 md:text-base">เดือน:</label>
+                <select
+                  id="productionChartMonth"
+                  value={productionChartMonth}
+                  onChange={(e) => setProductionChartMonth(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 md:px-4 md:py-2.5 md:text-base"
+                  disabled={!isProductionChartMonthFilterActive || !isProductionChartYearFilterActive}
+                >
+                  <option value="">ทั้งหมด</option>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(monthNum => {
+                    const monthName = new Date(2000, monthNum - 1, 1).toLocaleDateString('th-TH', { month: 'long' });
+                    return <option key={monthNum} value={monthNum.toString()}>{monthName}</option>;
+                  })}
+                </select>
+              </div>
+            </div>
+
+            {isProductionChartYearFilterActive && isProductionChartMonthFilterActive && productionChartMonth && (
+              <div className="mt-4 mb-4 flex flex-wrap justify-center items-center gap-4 p-4 bg-emerald-50 rounded-lg shadow-inner md:gap-6 md:text-base">
+                <span className="text-gray-600 text-base font-semibold">
+                  (เดือน{getThaiMonthName(productionChartMonth)} ปี {productionChartYear})
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-emerald-500"></span>
+                  <span className="text-emerald-800">ผลิตรวม: <span className="font-semibold text-emerald-700">{productionChartTotal.toLocaleString()} กระสอบ</span></span>
+                </div>
+              </div>
+            )}
+
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={productionChartData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey={
+                  (isProductionChartYearFilterActive && isProductionChartMonthFilterActive) ? "day" :
+                  (isProductionChartYearFilterActive && !isProductionChartMonthFilterActive) ? "month" :
+                  (!isProductionChartYearFilterActive && isProductionChartMonthFilterActive) ? "period" :
+                  "year"
+                } />
+                <YAxis label={{ value: 'จำนวนกระสอบ', angle: -90, position: 'insideLeft' }} />
+                <Tooltip content={<CustomTooltip 
+                                    xAxisKey={xAxisKey} 
+                                    year={isProductionChartYearFilterActive ? parseInt(productionChartYear) : null} 
+                                    month={isProductionChartMonthFilterActive ? parseInt(productionChartMonth) - 1 : null} 
+                                  />} />
+                <Legend />
+                <Bar dataKey="จำนวนกระสอบที่ผลิตได้" fill="#8884d8" name="กระสอบ" />
+                 {productionChartData.length > 10 && isProductionChartMonthFilterActive && (
+                  <Brush 
+                    dataKey="day" 
+                    height={30} 
+                    stroke="#8884d8" 
+                    startIndex={productionBrushIndices.startIndex}
+                    endIndex={productionBrushIndices.endIndex}
+                  />
+                )}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+           <div className="mt-8 text-right">
+                <button
+                    onClick={() => handleClearPageData('Production')}
+                    className="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 ml-auto"
+                >
+                    <AlertTriangle className="w-5 h-5" />
+                    ล้างข้อมูลหน้านี้
+                </button>
+            </div>
+        </div>
+      </div>
+    );
   }
 
-  // =============================
-  // Events
-  // =============================
-  document.getElementById("filter-year").addEventListener("change", () => { renderTable(); renderStats(); renderChart(); });
-  document.getElementById("filter-month").addEventListener("change", () => { renderTable(); renderStats(); renderChart(); });
-  document.getElementById("filter-status").addEventListener("change", () => { renderTable(); renderStats(); renderChart(); });
+  // ... rest of the component (management page) ...
+  if (currentPage === 'management') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-100 to-indigo-200 p-4 md:p-8">
+        {isLoading && <LoadingOverlay message={loadingMessage} />}
+        {showAlertModal && <CustomAlertModal title={alertTitle} message={alertMessage} onClose={closeAlert} onConfirm={alertOnConfirm} showCancel={alertShowCancel} confirmText={alertConfirmText} cancelText={alertCancelText} showPasswordInput={alertShowPasswordInput} passwordValue={alertPasswordValue} onPasswordChange={setAlertPasswordValue} correctPassword={alertCorrectPassword} />}
+        {showModal && selectedRecord && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl max-w-4xl w-full p-8 shadow-2xl transform scale-100 transition-transform duration-300 ease-out max-h-[90vh] overflow-y-auto">
+              <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">รูปภาพประกอบรายการ</h3>
+              {selectedRecord.images && selectedRecord.images.length > 0 ? (
+                <div className="mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 justify-center">
+                    {selectedRecord.images.map((image, index) => (
+                      <div key={`${selectedRecord.id}-mgmt-image-${index}`} className="relative group">
+                        <img
+                          src={image}
+                          alt={`ประกอบ ${index + 1}`}
+                          className="w-full h-64 md:h-80 object-contain rounded-lg shadow-md cursor-pointer hover:opacity-90 transition-opacity border border-gray-200"
+                          onClick={() => setCurrentImagePreview(image)}
+                          onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/400x300/cccccc/000000?text=Image+Not+Found"; }}
+                        />
+                        <div className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-sm">
+                          รูปที่ {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <p className="text-gray-500 text-lg">ไม่มีรูปภาพสำหรับรายการนี้</p>
+                </div>
+              )}
 
-  // =============================
-  // Init
-  // =============================
-  populateFilterOptions();
-  fetchData();
-</script>
-</body>
-</html>
+              {currentImagePreview && (
+                <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4">
+                  <div className="relative max-w-full max-h-full overflow-auto">
+                    <button
+                      onClick={() => setCurrentImagePreview(null)}
+                      className="absolute top-4 right-4 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full p-3 shadow-lg transition-all z-10"
+                      title="ปิดรูปภาพ"
+                    >
+                      <X className="w-6 h-6 text-gray-700" />
+                    </button>
+                    <img 
+                      src={currentImagePreview} 
+                      alt="Preview" 
+                      className="max-w-full max-h-[95vh] object-contain rounded-lg shadow-2xl" 
+                    />
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={closeModal}
+                className="w-full bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors text-lg"
+              >
+                ปิด
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="max-w-7xl mx-auto space-y-8 md:max-w-full lg:max-w-7xl">
+          <div className="text-center">
+            <button
+              onClick={() => setCurrentPage('inventory')}
+              className="mb-4 bg-white/80 hover:bg-white text-gray-700 px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 mx-auto"
+            >
+              ← กลับไปหน้าปริมาณสินค้า
+            </button>
+            <h1 className="text-5xl font-black text-gray-800 mb-2 md:text-6xl">รายงานสถานะสินค้า</h1>
+            <p className="text-lg text-gray-600 mb-8 md:text-xl">เกล็ดปลาตากแห้ง</p>
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-4 max-w-7xl mx-auto md:max-w-full lg:max-w-7xl">
+            <div className="bg-gradient-to-br from-green-100 to-green-200 border border-green-300 p-6 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 relative flex flex-col justify-between min-w-[280px] flex-1 md:min-w-[300px]">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-green-800 md:text-xl">ซื้อเข้า ({currentMonthName})</h3>
+                <div className="bg-green-500 p-2 rounded-full">
+                  <TrendingUp className="w-6 h-6 text-white" />
+                </div>
+              </div>
+              <div className="text-center relative">
+                <p className="text-5xl font-bold text-green-900 mb-2 md:text-6xl">{monthlyStats.totalIn.toLocaleString()}</p>
+                <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium absolute bottom-0 right-0">
+                  KG
+                </div>
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-red-100 to-red-200 border border-red-300 p-6 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 relative flex flex-col justify-between min-w-[280px] flex-1 md:min-w-[300px]">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-red-800 md:text-xl">ขายออก ({currentMonthName})</h3>
+                <div className="bg-red-500 p-2 rounded-full">
+                  <TrendingDown className="w-6 h-6 text-white" />
+                </div>
+              </div>
+              <div className="text-center relative">
+                <p className="text-5xl font-bold text-red-900 mb-2 md:text-6xl">{monthlyStats.totalOut.toLocaleString()}</p>
+                <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium absolute bottom-0 right-0">
+                  KG
+                </div>
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-violet-100 to-violet-200 border border-violet-300 p-6 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 relative flex flex-col justify-between min-w-[280px] flex-1 md:min-w-[300px]">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-violet-800 md:text-xl">ของพร้อมส่ง</h3>
+                <div className="bg-violet-500 p-2 rounded-full">
+                  <Package className="w-6 h-6 text-white" />
+                </div>
+              </div>
+              <div className="text-center relative">
+                <p className="text-5xl font-bold text-violet-900 mb-2 md:text-6xl">{readyForShipping.toLocaleString()}</p>
+                <div className="bg-violet-500 text-white px-3 py-1 rounded-full text-sm font-medium absolute bottom-0 right-0">
+                  กระสอบ
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-8 md:p-10">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-3 rounded-2xl">
+                <FileText className="w-6 h-6 text-white" />
+              </div>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent md:text-4xl">
+                บันทึกรายการสินค้า
+              </h2>
+            </div>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="block text-lg font-semibold text-slate-700 md:text-xl">สถานะ</label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleInputChange}
+                    className={`w-full px-4 py-4 border-2 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-lg font-medium md:text-xl md:py-5 ${
+                      formData.status === 'ซื้อเข้า' ? 'bg-emerald-50 border-emerald-300 text-emerald-700' :
+                      formData.status === 'ขายออก' ? 'bg-sky-50 border-sky-300 text-sky-700' :
+                      'bg-gray-50 border-gray-300 text-gray-500'
+                    }`}
+                  >
+                    <option value="" className="text-gray-400">กรุณาเลือกสถานะ</option>
+                    <option value="ซื้อเข้า" className="text-emerald-700">📦 ซื้อเข้า</option>
+                    <option value="ขายออก" className="text-sky-700">🚛 ขายออก</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-lg font-semibold text-slate-700 md:text-xl">ชื่อลูกค้า/ผู้ขาย</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className={`w-full px-4 py-4 border-2 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-lg md:text-xl md:py-5 ${
+                      formData.status === 'ขายออก' ? 'bg-gray-100 cursor-not-allowed border-gray-300' : 'bg-white border-gray-300 hover:border-gray-400'
+                    }`}
+                    placeholder="กรอกชื่อ..."
+                    readOnly={formData.status === 'ขายออก'}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-lg font-semibold text-slate-700 md:text-xl">
+                  จำนวน ({formData.status === 'ขายออก' ? 'กระสอบ' : 'กิโลกรัม'})
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    name="quantity"
+                    value={formData.quantity}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-4 pr-16 border-2 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-lg bg-white border-gray-300 hover:border-gray-400 md:text-xl md:py-5"
+                    placeholder={formData.status === 'ขายออก' ? 'กรอกจำนวนเป็นกระสอบ' : 'กรอกจำนวนเป็นกิโลกรัม'}
+                    min="0"
+                    step="0.01"
+                  />
+                  <div className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium md:text-lg">
+                    {formData.status === 'ขายออก' ? 'กระสอบ' : 'KG'}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="block text-lg font-semibold text-slate-700 md:text-xl">แนบรูปภาพ (1 รูป)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="w-full px-4 py-4 border-2 border-dashed border-gray-300 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-lg bg-gray-50 hover:bg-gray-100 md:text-xl md:py-5"
+                />
+                {formData.images.length > 0 && (
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    {formData.images.map((image, index) => (
+                      <div key={`preview-image-${index}`} className="relative group">
+                        <img
+                          src={image}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-xl border-2 border-gray-200 group-hover:border-blue-400 transition-colors md:h-32"
+                          onError={(e) => { e.target.onerror = null; e.target.src="https://placehold.co/400x300/cccccc/000000?text=Image+Not+Found"; }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm transition-colors shadow-lg md:w-8 md:h-8 md:text-base"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={isLoading}
+                  className={`w-full py-4 px-8 rounded-2xl font-semibold text-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] md:text-xl md:py-5 ${
+                    isLoading 
+                      ? 'bg-gray-400 text-white cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white'
+                  }`}
+                >
+                  {isLoading ? '🔄 กำลังบันทึก...' : '💾 บันทึกรายการ'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-8 md:p-10">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-3 rounded-2xl">
+                <Package className="w-6 h-6 text-white" />
+              </div>
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent md:text-4xl">
+                รายการสินค้าทั้งหมด
+              </h2>
+            </div>
+            <div className="mb-6 flex flex-wrap items-center gap-4 md:gap-6">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-semibold text-slate-700 whitespace-nowrap md:text-base">ปี:</label>
+                <select
+                  value={filterYear}
+                  onChange={(e) => setFilterYear(e.target.value)}
+                  className="px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-white min-w-[120px] md:min-w-[140px] md:text-base md:py-2.5"
+                >
+                  <option value="">ทั้งหมด</option>
+                  {availableYears.map(year => (<option key={year} value={year}>{year}</option>))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-semibold text-slate-700 whitespace-nowrap md:text-base">เดือน:</label>
+                <select
+                  value={filterMonth}
+                  onChange={(e) => setFilterMonth(e.target.value)}
+                  className="px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-white min-w-[120px] md:min-w-[140px] md:text-base md:py-2.5"
+                >
+                  <option value="">ทั้งหมด</option>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(monthNum => {
+                    const monthName = new Date(2000, monthNum - 1, 1).toLocaleDateString('th-TH', { month: 'long' });
+                    return <option key={monthNum} value={monthNum.toString()}>{monthName}</option>;
+                  })}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-semibold text-slate-700 whitespace-nowrap md:text-base">สถานะ:</label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-white min-w-[120px] md:min-w-[140px] md:text-base md:py-2.5"
+                >
+                  <option value="">ทั้งหมด</option>
+                  <option value="ซื้อเข้า">ซื้อเข้า</option>
+                  <option value="ขายออก">ขายออก</option>
+                </select>
+              </div>
+            </div>
+            <div className="overflow-x-auto max-h-80">
+              <table className="min-w-full bg-white">
+                <thead>
+                  <tr>
+                    <th className="py-3 px-4 text-center text-sm font-semibold text-gray-700 md:text-base">วันที่/เวลา</th>
+                    <th className="py-3 px-4 text-center text-sm font-semibold text-gray-700 md:text-base">ชื่อ / สถานะ</th>
+                    <th className="py-3 px-4 text-center text-sm font-semibold text-gray-700 md:text-base">จำนวน (KG)</th>
+                    <th className="py-3 px-4 text-center text-sm font-semibold text-gray-700 md:text-base">รายละเอียด</th>
+                    <th className="py-3 px-4 text-center text-sm font-semibold text-gray-700 md:text-base"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRecords.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="text-center py-8 text-gray-500">
+                        <Package className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                        <p>ไม่พบรายการสินค้าที่ตรงกับตัวกรอง</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRecords.map((record, index) => (
+                      <tr key={`record-${record.id}-${index}`} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-3 px-4 text-center text-sm text-gray-800 md:text-base">
+                          {formatDateTimeForDisplay(record.timestamp)}
+                        </td>
+                        <td className="py-3 px-4 text-center text-sm text-gray-800 md:text-base">
+                          {record.name}{' '}
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold inline-block ${
+                            record.status === 'ซื้อเข้า' ? 'bg-green-600 text-white' :
+                            'bg-blue-400 text-white'
+                          }`}>
+                            {record.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center text-sm text-gray-800 md:text-base">
+                          {record.quantity.toLocaleString()} KG
+                          {record.status === 'ขายออก' && (
+                            <>
+                              <br />
+                              <span className="text-xs text-gray-600">
+                                (จำนวน {(record.quantity / 10).toLocaleString()} กระสอบ)
+                              </span>
+                            </>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-center text-sm">
+                          <button
+                            onClick={() => handleDetailsClick(record)}
+                            className="bg-blue-100 text-blue-700 px-3 py-1 rounded-md text-sm hover:bg-blue-200 md:px-4 md:py-2 md:text-base"
+                          >
+                            ดูรายละเอียด
+                          </button>
+                        </td>
+                        <td className="py-3 px-4 text-center text-sm">
+                          <button
+                            onClick={() => handleDeleteRecord(record.id, record.status, record.quantity)}
+                            className="bg-red-100 text-red-700 p-2 rounded-full hover:bg-red-200 transition-colors"
+                            title="ลบรายการ"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg p-8 md:p-10">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 md:text-3xl">
+              ภาพรวมปริมาณสินค้า (KG)
+            </h2>
+            <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="toggleChartYearFilter"
+                  checked={isChartYearFilterActive}
+                  onChange={(e) => {
+                    setIsChartYearFilterActive(e.target.checked);
+                    if (!e.target.checked) {
+                      setIsChartMonthFilterActive(false);
+                      setChartSelectedMonth('');
+                    }
+                  }}
+                  className="form-checkbox h-5 w-5 text-blue-600 rounded"
+                />
+                <label htmlFor="toggleChartYearFilter" className="font-medium text-gray-700 md:text-base">ปี:</label>
+                <select
+                  value={chartYear}
+                  onChange={(e) => setChartYear(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 md:px-4 md:py-2.5 md:text-base"
+                  disabled={!isChartYearFilterActive}
+                >
+                  {availableYears.map(year => (<option key={year} value={year}>{year}</option>))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="toggleChartMonthFilter"
+                  checked={isChartMonthFilterActive}
+                  onChange={(e) => {
+                    setIsChartMonthFilterActive(e.target.checked);
+                    if (!e.target.checked) setChartSelectedMonth('');
+                  }}
+                  className="form-checkbox h-5 w-5 text-blue-600 rounded"
+                  disabled={!isChartYearFilterActive}
+                />
+                <label htmlFor="toggleChartMonthFilter" className="font-medium text-gray-700 md:text-base">เดือน:</label>
+                <select
+                  value={chartSelectedMonth}
+                  onChange={(e) => setChartSelectedMonth(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 md:px-4 md:py-2.5 md:text-base"
+                  disabled={!isChartMonthFilterActive || !isChartYearFilterActive}
+                >
+                  <option value="">ทั้งหมด</option>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(monthNum => {
+                    const monthName = new Date(2000, monthNum - 1, 1).toLocaleDateString('th-TH', { month: 'long' });
+                    return <option key={monthNum} value={monthNum.toString()}>{monthName}</option>;
+                  })}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label htmlFor="chartStatusFilter" className="font-medium text-gray-700 md:text-base">สถานะ:</label>
+                <select
+                  id="chartStatusFilter"
+                  value={chartStatusFilter}
+                  onChange={(e) => setChartStatusFilter(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 md:px-4 md:py-2.5 md:text-base"
+                >
+                  <option value="">ทั้งหมด</option>
+                  <option value="ซื้อเข้า">ซื้อเข้า</option>
+                  <option value="ขายออก">ขายออก</option>
+                </select>
+              </div>
+            </div>
+
+            {isChartYearFilterActive && isChartMonthFilterActive && chartSelectedMonth && (
+              <div className="mt-4 mb-4 flex flex-wrap justify-center items-center gap-4 p-4 bg-blue-50 rounded-lg shadow-inner md:gap-6 md:text-base">
+                <span className="text-gray-600 text-base font-semibold">
+                  (เดือน{getThaiMonthName(chartSelectedMonth)} ปี {chartYear})
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-green-500"></span>
+                  <span className="text-blue-700">นำเข้า: <span className="font-semibold text-green-700">{chartSummary.totalBuyIn.toLocaleString()} KG</span></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-4 h-4 rounded-full bg-blue-500"></span>
+                  <span className="text-blue-700">ส่งออก: <span className="font-semibold text-blue-700">{chartSummary.totalSellOut.toLocaleString()} KG</span></span>
+                </div>
+              </div>
+            )}
+
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={chartData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey={xAxisKey} />
+                <YAxis />
+                <Tooltip content={<CustomTooltip 
+                                    xAxisKey={xAxisKey} 
+                                    year={isChartYearFilterActive ? parseInt(chartYear) : null} 
+                                    month={isChartMonthFilterActive ? parseInt(chartSelectedMonth) - 1 : null} 
+                                  />} />
+                <Legend />
+                {chartStatusFilter !== 'ขายออก' && <Bar dataKey="ซื้อเข้า" fill="#4CAF50" name="ซื้อเข้า (KG)" />}
+                {chartStatusFilter !== 'ซื้อเข้า' && <Bar dataKey="ขายออก" fill="#2196F3" name="ขายออก (KG)" />}
+                {chartData.length > 10 && isChartMonthFilterActive && (
+                  <Brush 
+                    dataKey="day" 
+                    height={30} 
+                    stroke="#8884d8" 
+                    startIndex={chartBrushIndices.startIndex}
+                    endIndex={chartBrushIndices.endIndex}
+                  />
+                )}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+           <div className="mt-8 text-right">
+                <button
+                    onClick={() => handleClearPageData('Records')}
+                    className="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 ml-auto"
+                >
+                    <AlertTriangle className="w-5 h-5" />
+                    ล้างข้อมูลหน้านี้
+                </button>
+            </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+export default App;
